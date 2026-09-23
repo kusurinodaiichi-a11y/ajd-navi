@@ -312,7 +312,7 @@ body {
    ========================================================================== */
 .catalog-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
   gap: 16px;
 }
 
@@ -586,6 +586,130 @@ body {
 .btn-back-to-top:hover {
   background: #2e7d32;
   transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   レスポンシブ対応（タブレット・スマートフォン）
+   ========================================================================== */
+@media screen and (max-width: 768px) {
+  .header-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .header-info {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .control-panel {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .filter-group {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .search-box {
+    width: 100%;
+  }
+
+  .search-box input {
+    width: 100%;
+  }
+
+  .main-content {
+    padding: 0 8px;
+    margin: 10px auto;
+  }
+
+  .catalog-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .section-banner {
+    padding: 10px 12px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .header-title h1 {
+    font-size: 15px;
+  }
+
+  .period-badge {
+    font-size: 11px;
+  }
+
+  .filter-item {
+    font-size: 11px;
+  }
+
+  .filter-item select {
+    font-size: 11px;
+    padding: 4px 6px;
+  }
+
+  .card-top-header {
+    height: 26px;
+    font-size: 12px;
+    grid-template-columns: 1fr 85px;
+  }
+
+  .card-title-bar {
+    font-size: 12px;
+    min-height: 34px;
+    padding: 4px 8px;
+  }
+
+  .card-info-row {
+    font-size: 10px;
+    grid-template-columns: 1fr 75px 85px;
+  }
+
+  .info-date-val {
+    font-size: 11px;
+  }
+
+  .card-body {
+    grid-template-columns: 115px 1fr;
+    gap: 6px;
+    padding: 5px;
+    min-height: 155px;
+  }
+
+  .card-img {
+    max-height: 110px;
+  }
+
+  .spec-table {
+    font-size: 9.5px;
+  }
+
+  .spec-table th {
+    width: 50px;
+  }
+
+  .jan-number {
+    font-size: 11px;
+  }
+
+  .card-features {
+    font-size: 9.5px;
+    padding: 4px 8px;
+    min-height: 40px;
+  }
+
+  .btn-back-to-top {
+    bottom: 16px;
+    right: 16px;
+    padding: 8px 14px;
+    font-size: 12px;
+  }
 }
 
 /* ==========================================================================
