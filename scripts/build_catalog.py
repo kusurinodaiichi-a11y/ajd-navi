@@ -176,7 +176,19 @@ def login_ajd():
         session.post(f'{BASE_URL}/forseLogon.do', data={'force': '1', 'username': LOGIN_ID, 'password': LOGIN_PASS})
     return session
 
-def fetch_category_data(session, genre, category):
+PERIODS_CONFIG = [
+    {
+        'id': '202607-202612',
+        'name': '2026年 7月〜12月（2026年下期）',
+        'startDate': '2026/07/01',
+        'endDate': '2026/12/31',
+        'badge': '2026/07 〜 2026/12',
+        'dataFile': 'data/catalog_202607-202612.js',
+        'isDefault': True
+    }
+]
+
+def fetch_category_data(session, genre, category, start_date=START_DATE, end_date=END_DATE):
     # Step 1: Initialize search form
     session.get(f'{BASE_URL}/productCalendar/allSearchInit.do')
 
@@ -185,8 +197,8 @@ def fetch_category_data(session, genre, category):
         'pageNo': '1',
         'orderType': '',
         'firstSearch': 'false',
-        'startDateConditionStr': START_DATE,
-        'endDateConditionStr': END_DATE,
+        'startDateConditionStr': start_date,
+        'endDateConditionStr': end_date,
         'replaceStatusCondition': '0', # new & renewal
         'categorySearchType': '1',
         'aspHighCategoryCondition': category['code'],
@@ -327,14 +339,14 @@ def fetch_category_data(session, genre, category):
 
     return items
 
-def fetch_discontinued_data(session, genre, category):
+def fetch_discontinued_data(session, genre, category, start_date=START_DATE, end_date=END_DATE):
     params = {
         'searchMode': 'true',
         'pageNo': '1',
         'orderType': '',
         'firstSearch': 'false',
-        'startDateConditionStr': START_DATE,
-        'endDateConditionStr': END_DATE,
+        'startDateConditionStr': start_date,
+        'endDateConditionStr': end_date,
         'replaceStatusCondition': '1', # discontinued
         'categorySearchType': '1',
         'aspHighCategoryCondition': category['code'],
@@ -449,62 +461,86 @@ def download_product_images(session, products, output_dir='images/products'):
     return len(success_jans)
 
 def main():
-    print("=== AJD-Navi Web カタログ生成処理 開始 (全ページ画像取得＆ローカル保存) ===")
+    print("=== AJD-Navi Web カタログ生成処理 開始 (複数期間対応版) ===")
     session = login_ajd()
     print("AJD-navi ログイン成功")
 
-    all_products = []
-    all_disc = []
-
-    for genre in GROUPS:
-        print(f"\n【ジャンル】{genre['name']}")
-        for cat in genre['categories']:
-            print(f"  - カテゴリー取得中: {cat['name']} ({cat['code']})...")
-            new_items = fetch_category_data(session, genre, cat)
-            disc_items = fetch_discontinued_data(session, genre, cat)
-            print(f"    新商品/リニューアル: {len(new_items)} 件, 終売品: {len(disc_items)} 件")
-            all_products.extend(new_items)
-            all_disc.extend(disc_items)
-            time.sleep(0.3)
-
-    print(f"\n取得合計: カタログ掲載商品 {len(all_products)} 件, 終売品 {len(all_disc)} 件")
-
-    # Download product images to images/products/{JAN}.jpg
-    total_with_images = download_product_images(session, all_products)
-
-    # Sort products: Genre -> Maker -> Date -> Category
-    all_products.sort(key=lambda x: (
-        x['genreId'],
-        x['makerSortKey'],
-        x['releaseDate'] or '99999999',
-        x['categoryCode']
-    ))
-
-    # Match discontinued dates to prevJan
-    disc_map = {d['jan']: d for d in all_disc if d['jan']}
-    for p in all_products:
-        if p['prevJan'] and p['prevJan'] in disc_map:
-            p['discDate'] = disc_map[p['prevJan']]['discDate']
-            p['discDateDisplay'] = disc_map[p['prevJan']]['discDateDisplay']
-        else:
-            p['discDate'] = ''
-            p['discDateDisplay'] = ''
-
     os.makedirs('data', exist_ok=True)
     updated_at = datetime.now().strftime('%Y/%m/%d %H:%M')
-    catalog_json = {
-        'updatedAt': updated_at,
-        'totalCount': len(all_products),
-        'totalImages': total_with_images,
-        'products': all_products,
-        'discontinued': all_disc
-    }
 
-    with open('data/catalog_data.js', 'w', encoding='utf-8') as f:
-        f.write('window.CATALOG_DATA = ' + json.dumps(catalog_json, ensure_ascii=False, indent=2) + ';')
+    for p_cfg in PERIODS_CONFIG:
+        p_id = p_cfg['id']
+        p_start = p_cfg['startDate']
+        p_end = p_cfg['endDate']
+        p_name = p_cfg['name']
+        print(f"\n==========================================")
+        print(f"期間処理中: {p_name} ({p_start} 〜 {p_end})")
+        print(f"==========================================")
 
-    print(f"data/catalog_data.js を出力しました (更新日時: {updated_at})")
-    print("=== カタログデータ生成完了 ===")
+        all_products = []
+        all_disc = []
+
+        for genre in GROUPS:
+            print(f"\n【ジャンル】{genre['name']}")
+            for cat in genre['categories']:
+                print(f"  - カテゴリー取得中: {cat['name']} ({cat['code']})...")
+                new_items = fetch_category_data(session, genre, cat, start_date=p_start, end_date=p_end)
+                disc_items = fetch_discontinued_data(session, genre, cat, start_date=p_start, end_date=p_end)
+                print(f"    新商品/リニューアル: {len(new_items)} 件, 終売品: {len(disc_items)} 件")
+                all_products.extend(new_items)
+                all_disc.extend(disc_items)
+                time.sleep(0.3)
+
+        print(f"\n取得合計: カタログ掲載商品 {len(all_products)} 件, 終売品 {len(all_disc)} 件")
+
+        # Download product images to images/products/{JAN}.jpg
+        total_with_images = download_product_images(session, all_products)
+
+        # Sort products: Genre -> Maker -> Date -> Category
+        all_products.sort(key=lambda x: (
+            x['genreId'],
+            x['makerSortKey'],
+            x['releaseDate'] or '99999999',
+            x['categoryCode']
+        ))
+
+        # Match discontinued dates to prevJan
+        disc_map = {d['jan']: d for d in all_disc if d['jan']}
+        for p in all_products:
+            if p['prevJan'] and p['prevJan'] in disc_map:
+                p['discDate'] = disc_map[p['prevJan']]['discDate']
+                p['discDateDisplay'] = disc_map[p['prevJan']]['discDateDisplay']
+            else:
+                p['discDate'] = ''
+                p['discDateDisplay'] = ''
+
+        catalog_json = {
+            'periodId': p_id,
+            'periodName': p_name,
+            'updatedAt': updated_at,
+            'totalCount': len(all_products),
+            'totalImages': total_with_images,
+            'products': all_products,
+            'discontinued': all_disc
+        }
+
+        # 期間別データ出力
+        period_data_path = f"data/catalog_{p_id}.js"
+        with open(period_data_path, 'w', encoding='utf-8') as f:
+            f.write('window.CATALOG_DATA = ' + json.dumps(catalog_json, ensure_ascii=False, indent=2) + ';')
+        print(f"{period_data_path} を出力しました (商品数: {len(all_products)})")
+
+        if p_cfg.get('isDefault'):
+            with open('data/catalog_data.js', 'w', encoding='utf-8') as f:
+                f.write('window.CATALOG_DATA = ' + json.dumps(catalog_json, ensure_ascii=False, indent=2) + ';')
+            print("data/catalog_data.js (デフォルト) を出力しました")
+
+    # 期間マニフェスト出力
+    with open('data/periods.js', 'w', encoding='utf-8') as f:
+        f.write('window.CATALOG_PERIODS = ' + json.dumps(PERIODS_CONFIG, ensure_ascii=False, indent=2) + ';')
+    print("data/periods.js を出力しました")
+
+    print("\n=== 全期間のカタログデータ生成完了 ===")
 
 if __name__ == '__main__':
     main()
