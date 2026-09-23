@@ -372,8 +372,84 @@ def fetch_discontinued_data(session, genre, category):
         })
     return disc_items
 
+import concurrent.futures
+
+def download_product_images(session, products, output_dir='images/products'):
+    os.makedirs(output_dir, exist_ok=True)
+    print(f"\n商品画像のダウンロード/同期処理を開始します (保存先: {output_dir})...")
+    
+    download_tasks = []
+    seen_jans = set()
+    for p in products:
+        jan = p.get('jan')
+        pid = p.get('productId')
+        if jan and pid and jan not in seen_jans:
+            seen_jans.add(jan)
+            local_rel_path = f"{output_dir}/{jan}.jpg"
+            download_tasks.append({
+                'jan': jan,
+                'pid': pid,
+                'local_rel_path': local_rel_path,
+                'url': f"{BASE_URL}/images/product/common/package/{jan}_{pid}.jpg"
+            })
+
+    # Cache check
+    to_download = []
+    already_cached = 0
+    success_jans = set()
+    
+    for task in download_tasks:
+        local_path = os.path.normpath(task['local_rel_path'])
+        if os.path.exists(local_path) and os.path.getsize(local_path) > 500:
+            already_cached += 1
+            success_jans.add(task['jan'])
+        else:
+            to_download.append(task)
+
+    print(f"画像対象: {len(download_tasks)} 件 (キャッシュ済み: {already_cached} 件, 新規ダウンロード: {len(to_download)} 件)")
+
+    if to_download:
+        completed = 0
+        total = len(to_download)
+
+        def fetch_image(task):
+            try:
+                res = session.get(task['url'], timeout=15)
+                if res.status_code == 200 and len(res.content) > 500:
+                    content_start = res.content[:20].lower()
+                    if b'<!doctype' not in content_start and b'<html' not in content_start:
+                        local_path = os.path.normpath(task['local_rel_path'])
+                        with open(local_path, 'wb') as f:
+                            f.write(res.content)
+                        return task['jan'], True
+            except Exception:
+                pass
+            return task['jan'], False
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_task = {executor.submit(fetch_image, task): task for task in to_download}
+            for future in concurrent.futures.as_completed(future_to_task):
+                jan, ok = future.result()
+                if ok:
+                    success_jans.add(jan)
+                completed += 1
+                if completed % 200 == 0 or completed == total:
+                    print(f"  画像ダウンロード進捗: {completed}/{total} 完了")
+
+    print(f"画像保存完了: 利用可能画像合計 {len(success_jans)} 件")
+
+    # Update imageUrl to local static path
+    for p in products:
+        jan = p.get('jan')
+        if jan in success_jans:
+            p['imageUrl'] = f"images/products/{jan}.jpg"
+        else:
+            p['imageUrl'] = ""
+
+    return len(success_jans)
+
 def main():
-    print("=== AJD-Navi Web カタログ生成処理 開始 (全ページ画像取得) ===")
+    print("=== AJD-Navi Web カタログ生成処理 開始 (全ページ画像取得＆ローカル保存) ===")
     session = login_ajd()
     print("AJD-navi ログイン成功")
 
@@ -381,19 +457,20 @@ def main():
     all_disc = []
 
     for genre in GROUPS:
-        print(f"\n【ジャンル】${genre['name']}")
+        print(f"\n【ジャンル】{genre['name']}")
         for cat in genre['categories']:
             print(f"  - カテゴリー取得中: {cat['name']} ({cat['code']})...")
             new_items = fetch_category_data(session, genre, cat)
             disc_items = fetch_discontinued_data(session, genre, cat)
-            has_img_cnt = sum(1 for item in new_items if item.get('imageUrl'))
-            print(f"    新商品/リニューアル: {len(new_items)} 件 (画像あり: {has_img_cnt} 件), 終売品: {len(disc_items)} 件")
+            print(f"    新商品/リニューアル: {len(new_items)} 件, 終売品: {len(disc_items)} 件")
             all_products.extend(new_items)
             all_disc.extend(disc_items)
             time.sleep(0.3)
 
-    total_with_images = sum(1 for p in all_products if p.get('imageUrl'))
-    print(f"\n取得合計: カタログ掲載商品 {len(all_products)} 件 (画像あり: {total_with_images} 件), 終売品 {len(all_disc)} 件")
+    print(f"\n取得合計: カタログ掲載商品 {len(all_products)} 件, 終売品 {len(all_disc)} 件")
+
+    # Download product images to images/products/{JAN}.jpg
+    total_with_images = download_product_images(session, all_products)
 
     # Sort products: Genre -> Maker -> Date -> Category
     all_products.sort(key=lambda x: (
