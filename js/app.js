@@ -358,10 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function formatJanNumber(jan) {
     if (!jan) return '';
-    if (jan.length === 13) {
-      return `${jan[0]} ${jan.slice(1, 7)} ${jan.slice(7)}`;
-    }
-    return jan;
+    return jan.trim();
   }
 
   // 初回レンダリング
