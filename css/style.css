@@ -81,23 +81,6 @@ body {
   color: #c8e6c9;
 }
 
-.btn-print {
-  background: #ffffff;
-  color: #1b5e20;
-  border: none;
-  font-weight: bold;
-  font-size: 12px;
-  padding: 6px 14px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-print:hover {
-  background: #e8f5e9;
-  transform: translateY(-1px);
-}
-
 .btn-lock {
   background: rgba(255, 255, 255, 0.2);
   color: #ffffff;
