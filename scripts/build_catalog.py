@@ -324,6 +324,8 @@ def fetch_category_data(session, genre, category, start_date=START_DATE, end_dat
         risk = r.get('リスク区分', '').strip() or r.get('法定製品カテゴリー', '').strip()
         is_renewal_item = bool(prev_jan or prev_name or meta.get('isRenewal', False))
         item_type = 'リニューアル品' if is_renewal_item else '新商品'
+        ajd_div = r.get('AJD商品区分', '').strip()
+        is_ajd = (ajd_div == '定番')
 
         item = {
             'id': f"{jan}_{product_id}",
@@ -340,6 +342,8 @@ def fetch_category_data(session, genre, category, start_date=START_DATE, end_dat
             'fullName': f"{name} {spec}".strip(),
             'itemType': item_type,
             'isKikaku': is_kikaku,
+            'ajdDivision': ajd_div,
+            'isAjd': is_ajd,
             'releaseDate': rel_date,
             'releaseDateDisplay': format_display_date(rel_date),
             'releaseMonth': rel_date[:6] if len(rel_date) >= 6 else '',

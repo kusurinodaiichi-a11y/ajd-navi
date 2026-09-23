@@ -256,6 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const typeClass = p.itemType === 'リニューアル品' ? 'renewal' : '';
           const kikakuBadgeHtml = p.isKikaku ? '<span class="badge-kikaku" style="margin-left: 6px;">企画品</span>' : '';
+          const ajdBadgeHtml = p.isAjd ? '<span class="badge-ajd">AJD</span>' : '';
 
           const imgPlaceholder = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22150%22%20height%3D%22150%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f0f0f0%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-size%3D%2212%22%20text-anchor%3D%22middle%22%20fill%3D%22%23999999%22%20dy%3D%22.3em%22%3E%E7%94%BB%E5%83%8F%E6%BA%96%E5%82%99%E4%B8%AD%3C%2Ftext%3E%3C%2Fsvg%3E';
 
@@ -268,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             <!-- 商品名称・規格バー -->
             <div class="card-title-bar">
-              <span>${escapeHtml(p.fullName)}${kikakuBadgeHtml}</span>
+              <span>${escapeHtml(p.fullName)}${kikakuBadgeHtml}${ajdBadgeHtml}</span>
             </div>
 
             <!-- カテゴリー ＆ 発売日行 -->
@@ -401,6 +402,8 @@ document.addEventListener('DOMContentLoaded', () => {
           badgeHtml = '<span class="badge-new">新商品</span>';
         }
 
+        const ajdBadgeHtml = p.isAjd ? ' <span class="badge-ajd">AJD</span>' : '';
+
         tr.innerHTML = `
           <td class="col-cat">${escapeHtml(p.categoryName)}</td>
           <td class="col-maker">${escapeHtml(p.maker)}</td>
@@ -409,9 +412,9 @@ document.addEventListener('DOMContentLoaded', () => {
           <td class="col-date">${escapeHtml(p.discDateDisplay || '')}</td>
           <td class="col-sep"></td>
           <td class="col-jan">${escapeHtml(p.jan)}</td>
-          <td class="col-name"><strong>${escapeHtml(p.fullName)}</strong></td>
+          <td class="col-name"><strong>${escapeHtml(p.fullName)}</strong>${ajdBadgeHtml}</td>
           <td class="col-date">${escapeHtml(p.releaseDateDisplay || '')}</td>
-          <td class="col-badge">${badgeHtml}</td>
+          <td class="col-badge">${badgeHtml}${ajdBadgeHtml}</td>
         `;
 
         tr.addEventListener('click', () => {
@@ -451,9 +454,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedType === '企画品' && !p.isKikaku) return false;
         if (selectedType === '新商品' && (p.itemType !== '新商品' || p.isKikaku)) return false;
         if (selectedType === 'リニューアル品' && p.itemType !== 'リニューアル品') return false;
+        if (selectedType === 'AJD' && !p.isAjd) return false;
 
         if (keyword) {
-          const text = `${p.fullName} ${p.maker} ${p.rawMaker} ${p.jan} ${p.prevJan} ${p.categoryName} ${p.features}`.toLowerCase();
+          const text = `${p.fullName} ${p.maker} ${p.rawMaker} ${p.jan} ${p.prevJan} ${p.categoryName} ${p.features} ${p.isAjd ? 'ajd' : ''}`.toLowerCase();
           if (!text.includes(keyword)) {
             return false;
           }
