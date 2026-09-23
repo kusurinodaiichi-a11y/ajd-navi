@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-AJD Navi 新商品・リニューアル品 カタログ生成スクリプト
+AJD Navi 新商品・リニューアル品 カタログ生成スクリプト (全ページ画像URL対応版)
 """
 
 import os
@@ -11,6 +11,7 @@ import csv
 import io
 import json
 import time
+import math
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -23,8 +24,8 @@ if sys.stdout.encoding != 'utf-8':
         pass
 
 BASE_URL = 'https://www.ajd-navi.jp'
-LOGIN_ID = os.environ.get('AJD_LOGIN_ID', '')
-LOGIN_PASS = os.environ.get('AJD_LOGIN_PASS', '')
+LOGIN_ID = os.environ.get('AJD_LOGIN_ID', 'qbaa0001')
+LOGIN_PASS = os.environ.get('AJD_LOGIN_PASS', '7812')
 START_DATE = os.environ.get('START_DATE', '2026/07/01')
 END_DATE = os.environ.get('END_DATE', '2026/12/31')
 
@@ -140,7 +141,7 @@ def format_date_to_yyyymmdd(date_str):
     if not date_str:
         return ''
     date_str = date_str.strip()
-    m = re.match(r'^(?:(\d{2,4})/)?(\d{1,2})/(\d{1,2}|--)$', date_str)
+    m = re.match(r'^(?:(\d{2,4})\/)?(\d{1,2})\/(\d{1,2}|--)$', date_str)
     if m:
         yy = m.group(1) or ''
         mm = m.group(2) or ''
@@ -170,12 +171,15 @@ def login_ajd():
     })
     session.get(f'{BASE_URL}/logout.do')
     res_login = session.post(f'{BASE_URL}/logon.do', data={'username': LOGIN_ID, 'password': LOGIN_PASS})
-    text = res_login.content.decode('cp932', errors='replace')
+    text = res_login.content.decode('utf-8', errors='replace')
     if '/forseLogon.do' in text or 'force' in text:
         session.post(f'{BASE_URL}/forseLogon.do', data={'force': '1', 'username': LOGIN_ID, 'password': LOGIN_PASS})
     return session
 
 def fetch_category_data(session, genre, category):
+    # Step 1: Initialize search form
+    session.get(f'{BASE_URL}/productCalendar/allSearchInit.do')
+
     params = {
         'searchMode': 'true',
         'pageNo': '1',
@@ -193,38 +197,41 @@ def fetch_category_data(session, genre, category):
         'renewalProductCondition': 'on'
     }
 
-    # 1. searchResult.do for productIDs and Kikaku icons
+    # First page search to get total count and first batch
     res_search = session.post(f'{BASE_URL}/productCalendar/searchResult.do', data=params)
-    search_html = res_search.content.decode('cp932', errors='replace')
-    soup = BeautifulSoup(search_html, 'html.parser')
+    html_p1 = res_search.content.decode('utf-8', errors='replace')
 
-    # Extract productID & Kikaku icon for each JAN
-    jan_meta = {} # jan -> {'productId': '', 'isKikaku': bool, 'isRenewal': bool}
-    table = soup.find('table')
-    if table:
-        for tr in table.find_all('tr'):
-            tds = tr.find_all('td')
-            if not tds:
+    cnt_match = re.search(r'全\s*(\d+)\s*件中', html_p1)
+    total_count = int(cnt_match.group(1)) if cnt_match else 0
+    total_pages = math.ceil(total_count / 50) if total_count > 0 else 0
+
+    jan_meta = {}
+
+    def extract_from_soup(soup_obj):
+        tbl = soup_obj.find('table')
+        if not tbl:
+            return
+        for tr in tbl.find_all('tr'):
+            jan_m = re.search(r'\b\d{13}\b', tr.get_text())
+            if not jan_m:
                 continue
-            jan_match = re.search(r'\b\d{13}\b', tr.get_text())
-            if not jan_match:
-                continue
-            jan = jan_match.group(0)
-
-            # Find product ID in link
-            pid_match = re.search(r'productID=(\d+)', str(tr))
-            pid = pid_match.group(1) if pid_match else ''
-
+            jan = jan_m.group(0)
+            pid_m = re.search(r'productID=(\d+)', str(tr))
+            pid = pid_m.group(1) if pid_m else ''
             is_kikaku = bool(tr.find('img', src=re.compile(r'00167684')) or '企画品' in str(tr))
             is_renewal = bool(tr.find('img', src=re.compile(r'r_icon')) or 'リニューアル' in str(tr))
+            jan_meta[jan] = {'productId': pid, 'isKikaku': is_kikaku, 'isRenewal': is_renewal}
 
-            jan_meta[jan] = {
-                'productId': pid,
-                'isKikaku': is_kikaku,
-                'isRenewal': is_renewal
-            }
+    extract_from_soup(BeautifulSoup(html_p1, 'html.parser'))
 
-    # 2. download CSV
+    # Fetch remaining pages to extract all product IDs for all images
+    for p in range(2, total_pages + 1):
+        params['pageNo'] = str(p)
+        params['searchMode'] = 'false'
+        res_p = session.post(f'{BASE_URL}/productCalendar/searchResult.do', data=params)
+        extract_from_soup(BeautifulSoup(res_p.content.decode('utf-8', errors='replace'), 'html.parser'))
+
+    # Step 2: Download full CSV
     res_csv = session.post(f'{BASE_URL}/productCalendar/downloadCsv.do', data=params)
     csv_text = res_csv.content.decode('cp932', errors='replace')
     rows = list(csv.DictReader(io.StringIO(csv_text)))
@@ -254,8 +261,7 @@ def fetch_category_data(session, genre, category):
         is_kikaku = meta.get('isKikaku', False) or ('企画' in name) or ('企画' in spec)
         product_id = meta.get('productId', '')
         
-        # Determine image URL
-        # AJD image pattern: https://www.ajd-navi.jp/images/product/common/package/{JAN}_{productId}.jpg
+        # Image URL (AJD pattern)
         image_url = ''
         if product_id:
             image_url = f"{BASE_URL}/images/product/common/package/{jan}_{product_id}.jpg"
@@ -282,10 +288,7 @@ def fetch_category_data(session, genre, category):
         elif inner_pack:
             pack_display = f"内箱: {inner_pack}"
 
-        # Risk classification / legal category
         risk = r.get('リスク区分', '').strip() or r.get('法定製品カテゴリー', '').strip()
-
-        # Classification (新商品 / リニューアル品)
         is_renewal_item = bool(prev_jan or prev_name or meta.get('isRenewal', False))
         item_type = 'リニューアル品' if is_renewal_item else '新商品'
 
@@ -370,7 +373,7 @@ def fetch_discontinued_data(session, genre, category):
     return disc_items
 
 def main():
-    print("=== AJD-Navi Web カタログ生成処理 開始 ===")
+    print("=== AJD-Navi Web カタログ生成処理 開始 (全ページ画像取得) ===")
     session = login_ajd()
     print("AJD-navi ログイン成功")
 
@@ -378,17 +381,19 @@ def main():
     all_disc = []
 
     for genre in GROUPS:
-        print(f"\n【ジャンル】{genre['name']}")
+        print(f"\n【ジャンル】${genre['name']}")
         for cat in genre['categories']:
             print(f"  - カテゴリー取得中: {cat['name']} ({cat['code']})...")
             new_items = fetch_category_data(session, genre, cat)
             disc_items = fetch_discontinued_data(session, genre, cat)
-            print(f"    新商品/リニューアル: {len(new_items)} 件, 終売品: {len(disc_items)} 件")
+            has_img_cnt = sum(1 for item in new_items if item.get('imageUrl'))
+            print(f"    新商品/リニューアル: {len(new_items)} 件 (画像あり: {has_img_cnt} 件), 終売品: {len(disc_items)} 件")
             all_products.extend(new_items)
             all_disc.extend(disc_items)
-            time.sleep(0.5)
+            time.sleep(0.3)
 
-    print(f"\n取得合計: カタログ掲載商品 {len(all_products)} 件, 終売品 {len(all_disc)} 件")
+    total_with_images = sum(1 for p in all_products if p.get('imageUrl'))
+    print(f"\n取得合計: カタログ掲載商品 {len(all_products)} 件 (画像あり: {total_with_images} 件), 終売品 {len(all_disc)} 件")
 
     # Sort products: Genre -> Maker -> Date -> Category
     all_products.sort(key=lambda x: (
@@ -408,13 +413,12 @@ def main():
             p['discDate'] = ''
             p['discDateDisplay'] = ''
 
-    # Save to data/catalog_data.js for instant client-side loading
     os.makedirs('data', exist_ok=True)
-    
     updated_at = datetime.now().strftime('%Y/%m/%d %H:%M')
     catalog_json = {
         'updatedAt': updated_at,
         'totalCount': len(all_products),
+        'totalImages': total_with_images,
         'products': all_products,
         'discontinued': all_disc
     }

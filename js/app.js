@@ -106,6 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
                    src="${p.imageUrl || imgPlaceholder}" 
                    alt="${escapeHtml(p.name)}" 
                    loading="lazy"
+                   referrerpolicy="no-referrer"
                    onerror="this.onerror=null;this.src='${imgPlaceholder}';">
             </div>
 
