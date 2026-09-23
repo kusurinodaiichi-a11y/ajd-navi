@@ -1,0 +1,643 @@
+/* ==========================================================================
+   AJD Navi 新商品・リニューアル品 カタログ スタイルシート
+   ========================================================================== */
+
+:root {
+  --primary-green: #2e7d32;
+  --header-maker-bg: #43a047;
+  --header-new-bg: #e53935;
+  --header-renewal-bg: #f57c00;
+  --title-yellow-bg: #fff9c4;
+  --border-color: #888888;
+  --border-light: #cccccc;
+  --table-header-bg: #f0f0f0;
+  --bg-gray: #f4f6f8;
+  --text-dark: #222222;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+  color: var(--text-dark);
+  background-color: var(--bg-gray);
+  line-height: 1.4;
+  font-size: 13px;
+}
+
+/* ==========================================================================
+   固定ヘッダー・コントロールバー
+   ========================================================================== */
+.main-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  border-bottom: 2px solid var(--primary-green);
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: #1b5e20;
+  color: #ffffff;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-title h1 {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.period-badge {
+  background: #ffeb3b;
+  color: #1b5e20;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.timestamp {
+  font-size: 12px;
+  color: #c8e6c9;
+}
+
+.btn-print {
+  background: #ffffff;
+  color: #1b5e20;
+  border: none;
+  font-weight: bold;
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-print:hover {
+  background: #e8f5e9;
+  transform: translateY(-1px);
+}
+
+/* コントロールパネル */
+.control-panel {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  gap: 10px;
+  background: #ffffff;
+}
+
+.view-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tab-btn {
+  background: #e0e0e0;
+  border: none;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.tab-btn.active {
+  background: var(--primary-green);
+  color: #ffffff;
+}
+
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-box input {
+  width: 240px;
+  padding: 6px 28px 6px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.search-box input:focus {
+  outline: none;
+  border-color: var(--primary-green);
+}
+
+.btn-clear {
+  position: absolute;
+  right: 6px;
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  color: #888888;
+  cursor: pointer;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.filter-item select {
+  padding: 5px 8px;
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  font-size: 12px;
+  background: #ffffff;
+}
+
+.result-count {
+  font-size: 13px;
+  color: #555555;
+}
+
+.result-count strong {
+  color: var(--header-new-bg);
+  font-size: 16px;
+}
+
+/* ==========================================================================
+   メインレイアウト
+   ========================================================================== */
+.main-content {
+  max-width: 1400px;
+  margin: 16px auto;
+  padding: 0 16px;
+}
+
+.view-section {
+  width: 100%;
+}
+
+.section-banner {
+  background: #ffffff;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.section-banner h2 {
+  font-size: 16px;
+  color: #1b5e20;
+}
+
+.section-desc {
+  font-size: 12px;
+  color: #666666;
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   改廃表（目次）ビュー
+   ========================================================================== */
+.table-container {
+  background: #ffffff;
+  border-radius: 6px;
+  overflow-x: auto;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.mokuji-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.mokuji-table th, .mokuji-table td {
+  padding: 8px 10px;
+  border: 1px solid #e0e0e0;
+  vertical-align: middle;
+}
+
+.mokuji-table th {
+  background: #f5f5f5;
+  font-weight: bold;
+  text-align: center;
+}
+
+.mokuji-table tr.genre-header-row td {
+  background: #1c4587;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 13px;
+  padding: 6px 12px;
+}
+
+.mokuji-table tr.item-row:hover {
+  background: #e8f5e9;
+  cursor: pointer;
+}
+
+.mokuji-table tr.maker-blank-row td {
+  background: #fafafa;
+  border: none;
+  height: 8px;
+  padding: 0;
+}
+
+.col-cat { width: 110px; text-align: center; }
+.col-maker { width: 130px; }
+.col-jan { width: 110px; text-align: center; font-family: monospace; }
+.col-name { min-width: 200px; }
+.col-date { width: 85px; text-align: center; font-family: monospace; }
+.col-sep { width: 15px; background: #fafafa; border-top: none; border-bottom: none; }
+.col-badge { width: 80px; text-align: center; }
+
+.badge-kikaku {
+  background: #e91e63;
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.badge-new {
+  background: #e53935;
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.badge-renewal {
+  background: #f57c00;
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+/* ==========================================================================
+   画像カタログ（カード一覧）グリッド
+   ========================================================================== */
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 16px;
+}
+
+.genre-divider {
+  grid-column: 1 / -1;
+  background: #1c4587;
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 15px;
+  font-weight: bold;
+  margin-top: 12px;
+}
+
+/* 1枠1商品カード */
+.product-card {
+  background: #ffffff;
+  border: 1.5px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* カード上部ヘッダー */
+.card-top-header {
+  display: grid;
+  grid-template-columns: 1fr 100px;
+  height: 28px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.card-maker {
+  background: var(--header-maker-bg);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-type {
+  background: var(--header-new-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 1px;
+}
+
+.card-type.renewal {
+  background: var(--header-renewal-bg);
+}
+
+/* 商品名称・規格バー */
+.card-title-bar {
+  background: var(--title-yellow-bg);
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: bold;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+}
+
+/* カテゴリー ＆ 出荷/発売日行 */
+.card-info-row {
+  display: grid;
+  grid-template-columns: 1fr 90px 100px;
+  border-bottom: 1px solid var(--border-color);
+  background: #ffffff;
+  font-size: 11px;
+  text-align: center;
+}
+
+.info-category {
+  padding: 4px 6px;
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.info-date-label {
+  padding: 4px;
+  background: #f5f5f5;
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555555;
+}
+
+.info-date-val {
+  padding: 4px;
+  font-weight: bold;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1b5e20;
+}
+
+/* カード本体（左側画像 ＋ 右側スペック表） */
+.card-body {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  padding: 6px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-color);
+  background: #ffffff;
+  min-height: 190px;
+}
+
+/* 画像エリア */
+.card-image-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #eeeeee;
+  border-radius: 4px;
+  padding: 4px;
+  background: #fafafa;
+  position: relative;
+}
+
+.risk-tag {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  border: 1px solid #666666;
+  font-size: 9px;
+  padding: 1px 3px;
+  background: #ffffff;
+  color: #333333;
+}
+
+.card-img {
+  max-width: 100%;
+  max-height: 150px;
+  object-fit: contain;
+  transition: opacity 0.3s;
+}
+
+.img-placeholder {
+  width: 100%;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #aaaaaa;
+  font-size: 11px;
+  text-align: center;
+}
+
+/* 右側スペック表 */
+.card-specs {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* バーコード表示エリア */
+.barcode-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+  background: #ffffff;
+}
+
+.barcode-svg {
+  width: 100%;
+  max-height: 38px;
+}
+
+.jan-number {
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+/* スペックミニテーブル */
+.spec-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+
+.spec-table th, .spec-table td {
+  border: 1px solid var(--border-color);
+  padding: 2px 4px;
+}
+
+.spec-table th {
+  background: #f0f0f0;
+  font-weight: normal;
+  color: #333333;
+  width: 60px;
+  text-align: center;
+}
+
+.spec-table td {
+  font-weight: bold;
+}
+
+/* カード下部 特徴文 */
+.card-features {
+  padding: 6px 10px;
+  background: #ffffff;
+  font-size: 10.5px;
+  color: #444444;
+  min-height: 48px;
+  max-height: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  line-height: 1.35;
+}
+
+/* 該当なし */
+.no-results {
+  text-align: center;
+  padding: 60px 20px;
+  color: #888888;
+  font-size: 16px;
+}
+
+/* 浮動 TOPボタン */
+.btn-back-to-top {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #1b5e20;
+  color: #ffffff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 30px;
+  font-weight: bold;
+  font-size: 13px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  cursor: pointer;
+  z-index: 1100;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.25s;
+}
+
+.btn-back-to-top.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.btn-back-to-top:hover {
+  background: #2e7d32;
+  transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   A4 カタログ印刷スタイル (@media print)
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 6mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    font-size: 9.5px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .main-content {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 1ページに横3枠×縦2枠＝6枠でレイアウト */
+  .catalog-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 4mm !important;
+  }
+
+  .genre-divider {
+    display: none !important;
+  }
+
+  .product-card {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    border: 1px solid #333333 !important;
+    box-shadow: none !important;
+    margin-bottom: 2mm !important;
+  }
+
+  .card-body {
+    min-height: 140px !important;
+  }
+
+  .card-img {
+    max-height: 110px !important;
+  }
+}
