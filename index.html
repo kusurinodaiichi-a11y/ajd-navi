@@ -6,9 +6,11 @@
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex, nofollow, noarchive">
   <title>AJD Navi 新商品・リニューアル品 カタログ</title>
-  <link rel="stylesheet" href="css/style.css?v=20260923_2">
+  <link rel="stylesheet" href="css/style.css?v=20260923_4">
   <!-- JsBarcode for rendering real barcodes -->
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <!-- CryptoJS for AES Decryption -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 </head>
 <body>
 
@@ -22,6 +24,7 @@
       <div class="header-info">
         <span id="update-timestamp" class="timestamp">最終更新: 取得中...</span>
         <button id="btn-print" class="btn btn-print" onclick="window.print()">🖨️ A4カタログ印刷</button>
+        <button id="btn-lock" class="btn btn-lock" title="認証を解除してロックする">🔒 ログアウト</button>
       </div>
     </div>
 
@@ -133,9 +136,26 @@
   <!-- 浮動 TOPへ戻るボタン -->
   <button id="btn-back-to-top" class="btn-back-to-top no-print" title="トップへ戻る">▲ TOP</button>
 
+  <!-- 🔒 認証パスコード入力モーダル -->
+  <div id="auth-modal" class="auth-modal-overlay" style="display: none;">
+    <div class="auth-modal-card">
+      <div class="auth-icon">🔒</div>
+      <h2>社内用Webカタログ 認証</h2>
+      <p class="auth-desc">このカタログを閲覧するには社内用パスコード（合言葉）が必要です。<br><span style="font-size:11px;color:#888;">※一度認証すると次回以降この端末では自動的に開きます。</span></p>
+      
+      <form id="auth-form" onsubmit="return false;">
+        <div class="auth-input-group">
+          <input type="password" id="auth-passcode" placeholder="パスコードを入力 (例: 7812)" autocomplete="current-password" autofocus>
+          <button type="submit" id="auth-btn-submit" class="btn-auth-submit">閲覧開始 ➔</button>
+        </div>
+        <div id="auth-error" class="auth-error-msg" style="display: none;"></div>
+      </form>
+    </div>
+  </div>
+
   <!-- 期間マニフェスト読み込み -->
-  <script src="data/periods.js?v=20260923_3"></script>
+  <script src="data/periods.js?v=20260923_4"></script>
   <!-- アプリケーションスクリプト -->
-  <script src="js/app.js?v=20260923_3"></script>
+  <script src="js/app.js?v=20260923_4"></script>
 </body>
 </html>

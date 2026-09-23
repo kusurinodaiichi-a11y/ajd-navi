@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-AJD Navi 新商品・リニューアル品 カタログ生成スクリプト (全ページ画像URL対応版)
-"""
-
 import os
 import sys
 import re
@@ -12,9 +6,13 @@ import io
 import json
 import time
 import math
+import base64
+import hashlib
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
 
 # Windows console encoding safety
 if sys.stdout.encoding != 'utf-8':
@@ -26,8 +24,31 @@ if sys.stdout.encoding != 'utf-8':
 BASE_URL = 'https://www.ajd-navi.jp'
 LOGIN_ID = os.environ.get('AJD_LOGIN_ID', 'qbaa0001')
 LOGIN_PASS = os.environ.get('AJD_LOGIN_PASS', '7812')
+ENCRYPT_KEY = os.environ.get('CATALOG_ENCRYPT_KEY', '7812')
 START_DATE = os.environ.get('START_DATE', '2026/07/01')
 END_DATE = os.environ.get('END_DATE', '2026/12/31')
+
+def evp_bytes_to_key(password, salt, key_len=32, iv_len=16):
+    dt = b''
+    d = b''
+    while len(dt) < (key_len + iv_len):
+        d = hashlib.md5(d + password + salt).digest()
+        dt += d
+    return dt[:key_len], dt[key_len:key_len + iv_len]
+
+def encrypt_data(plain_text, password=ENCRYPT_KEY):
+    salt = os.urandom(8)
+    key, iv = evp_bytes_to_key(password.encode('utf-8'), salt)
+    
+    padder = padding.PKCS7(128).padder()
+    padded_data = padder.update(plain_text.encode('utf-8')) + padder.finalize()
+    
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+    encryptor = cipher.encryptor()
+    ciphertext = encryptor.update(padded_data) + encryptor.finalize()
+    
+    combined = b'Salted__' + salt + ciphertext
+    return base64.b64encode(combined).decode('utf-8')
 
 GROUPS = [
     {
@@ -524,23 +545,26 @@ def main():
             'discontinued': all_disc
         }
 
-        # 期間別データ出力
+        # 期間別暗号化データ出力 (AES-256-CBC)
+        plain_json_str = json.dumps(catalog_json, ensure_ascii=False)
+        encrypted_b64 = encrypt_data(plain_json_str, ENCRYPT_KEY)
+
         period_data_path = f"data/catalog_{p_id}.js"
         with open(period_data_path, 'w', encoding='utf-8') as f:
-            f.write('window.CATALOG_DATA = ' + json.dumps(catalog_json, ensure_ascii=False, indent=2) + ';')
-        print(f"{period_data_path} を出力しました (商品数: {len(all_products)})")
+            f.write(f'window.ENCRYPTED_CATALOG_DATA = "{encrypted_b64}";\n')
+        print(f"{period_data_path} をAES暗号化出力しました (商品数: {len(all_products)})")
 
         if p_cfg.get('isDefault'):
             with open('data/catalog_data.js', 'w', encoding='utf-8') as f:
-                f.write('window.CATALOG_DATA = ' + json.dumps(catalog_json, ensure_ascii=False, indent=2) + ';')
-            print("data/catalog_data.js (デフォルト) を出力しました")
+                f.write(f'window.ENCRYPTED_CATALOG_DATA = "{encrypted_b64}";\n')
+            print("data/catalog_data.js (デフォルト) をAES暗号化出力しました")
 
     # 期間マニフェスト出力
     with open('data/periods.js', 'w', encoding='utf-8') as f:
         f.write('window.CATALOG_PERIODS = ' + json.dumps(PERIODS_CONFIG, ensure_ascii=False, indent=2) + ';')
     print("data/periods.js を出力しました")
 
-    print("\n=== 全期間のカタログデータ生成完了 ===")
+    print("\n=== 全期間のカタログデータ生成完了 (暗号化完了) ===")
 
 if __name__ == '__main__':
     main()

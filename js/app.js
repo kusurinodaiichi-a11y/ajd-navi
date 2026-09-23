@@ -1,5 +1,5 @@
 /**
- * AJD Navi Web カタログ アプリケーションスクリプト (複数期間＆URLパラメータ対応版)
+ * AJD Navi Web カタログ アプリケーションスクリプト (URLキー認証 ＆ AES暗号化復号対応版)
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,9 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   ];
 
-  // 1. URLパラメータから対象期間を取得
+  // 1. URLパラメータから対象期間とキーを取得
   const urlParams = new URLSearchParams(window.location.search);
   let requestedPeriodId = urlParams.get('period');
+  let urlKey = urlParams.get('key');
 
   let activePeriod = periods.find(p => p.id === requestedPeriodId);
   if (!activePeriod) {
@@ -38,6 +39,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const typeFilter = document.getElementById('type-filter');
   const noResults = document.getElementById('no-results');
   const btnBackToTop = document.getElementById('btn-back-to-top');
+  const btnLock = document.getElementById('btn-lock');
+
+  const authModal = document.getElementById('auth-modal');
+  const authForm = document.getElementById('auth-form');
+  const authPasscode = document.getElementById('auth-passcode');
+  const authError = document.getElementById('auth-error');
 
   const tabBtns = document.querySelectorAll('.tab-btn');
   const catalogView = document.getElementById('catalog-view');
@@ -62,28 +69,125 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     periodFilter.addEventListener('change', () => {
-      const newPeriodId = periodFilter.value;
-      urlParams.set('period', newPeriodId);
+      urlParams.set('period', periodFilter.value);
       window.location.search = urlParams.toString();
+    });
+  }
+
+  // ログアウトボタン
+  if (btnLock) {
+    btnLock.addEventListener('click', () => {
+      localStorage.removeItem('ajd_catalog_key');
+      urlParams.delete('key');
+      const newQuery = urlParams.toString();
+      window.location.search = newQuery ? `?${newQuery}` : '';
     });
   }
 
   // ローディング表示
   catalogContainer.innerHTML = '<div style="text-align:center; padding: 40px; font-size: 15px; color: #666;">カタログデータを読み込み中...</div>';
 
-  // 2. 該当期間のデータファイルを動的読み込み
-  const scriptUrl = `${activePeriod.dataFile}?v=20260923_3`;
+  // 2. 暗号化データファイルを動的読み込み
+  const scriptUrl = `${activePeriod.dataFile}?v=20260923_4`;
   const scriptTag = document.createElement('script');
   scriptTag.src = scriptUrl;
   scriptTag.onload = () => {
-    initApp(window.CATALOG_DATA || { products: [], discontinued: [], updatedAt: '' });
+    handleAuthenticationAndInit();
   };
   scriptTag.onerror = () => {
     catalogContainer.innerHTML = `<div style="text-align:center; padding: 40px; color: #d32f2f;">データファイル (${activePeriod.dataFile}) の読み込みに失敗しました。</div>`;
   };
   document.head.appendChild(scriptTag);
 
-  // 3. アプリ初期化
+  // 3. AES復号化関数
+  function decryptData(encryptedB64, key) {
+    if (!encryptedB64 || !key) return null;
+    try {
+      if (typeof CryptoJS === 'undefined') {
+        console.error('CryptoJS is not loaded');
+        return null;
+      }
+      const bytes = CryptoJS.AES.decrypt(encryptedB64, key);
+      const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+      if (!decryptedText) return null;
+      return JSON.parse(decryptedText);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // 4. 認証＆復号化処理フロー
+  function handleAuthenticationAndInit() {
+    const encryptedData = window.ENCRYPTED_CATALOG_DATA;
+    if (!encryptedData) {
+      // 暗号化されていないデータの場合の後方互換
+      if (window.CATALOG_DATA) {
+        initApp(window.CATALOG_DATA);
+        return;
+      }
+      catalogContainer.innerHTML = '<div style="text-align:center; padding: 40px; color: #d32f2f;">データが存在しません。</div>';
+      return;
+    }
+
+    // 鍵の優先順位: 1. URLパラメータ (?key=...) -> 2. LocalStorage
+    const candidateKey = urlKey || localStorage.getItem('ajd_catalog_key');
+
+    if (candidateKey) {
+      const decrypted = decryptData(encryptedData, candidateKey);
+      if (decrypted) {
+        // 認証成功
+        localStorage.setItem('ajd_catalog_key', candidateKey);
+        if (authModal) authModal.style.display = 'none';
+        initApp(decrypted);
+        return;
+      } else {
+        // 保存されたキーまたはURLキーが無効
+        localStorage.removeItem('ajd_catalog_key');
+        showAuthModal(true);
+      }
+    } else {
+      // キーなし
+      showAuthModal(false);
+    }
+  }
+
+  // 認証モーダル表示
+  function showAuthModal(isInvalidKey) {
+    if (!authModal) return;
+    authModal.style.display = 'flex';
+    if (authError) {
+      if (isInvalidKey) {
+        authError.textContent = 'パスコードが正しくありません。再度入力してください。';
+        authError.style.display = 'block';
+      } else {
+        authError.style.display = 'none';
+      }
+    }
+    if (authPasscode) {
+      authPasscode.value = '';
+      setTimeout(() => authPasscode.focus(), 100);
+    }
+
+    // フォーム送信
+    authForm.onsubmit = (e) => {
+      e.preventDefault();
+      const inputVal = authPasscode.value.trim();
+      if (!inputVal) return;
+
+      const decrypted = decryptData(window.ENCRYPTED_CATALOG_DATA, inputVal);
+      if (decrypted) {
+        localStorage.setItem('ajd_catalog_key', inputVal);
+        authModal.style.display = 'none';
+        initApp(decrypted);
+      } else {
+        authError.textContent = 'パスコードが正しくありません。';
+        authError.style.display = 'block';
+        authPasscode.select();
+      }
+    };
+  }
+
+  // 5. アプリ初期化＆レンダリング
   function initApp(data) {
     const products = data.products || [];
     const discontinued = data.discontinued || [];
