@@ -35,8 +35,8 @@ const CONFIG = {
   SPREADSHEET_ID: '1Qq_ZMdokH1pHk_YhvFbVUv-v6tRJFK1p6q41m2zZ0Hk',
   SHEET_NAME: '商品リスト_202607-202612',
   BASE_URL: 'https://www.ajd-navi.jp',
-  LOGIN_ID: 'qbaa0001',
-  LOGIN_PASS: '7812',
+  LOGIN_ID: PropertiesService.getScriptProperties().getProperty('AJD_LOGIN_ID') || 'qbaa0001',
+  LOGIN_PASS: PropertiesService.getScriptProperties().getProperty('AJD_LOGIN_PASS') || '7812',
   START_DATE: '2026/07/01',
   END_DATE: '2026/12/31',
   GROUPS: [

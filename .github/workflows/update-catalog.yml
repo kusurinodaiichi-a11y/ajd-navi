@@ -28,6 +28,9 @@ jobs:
           pip install requests beautifulsoup4
 
       - name: Run Catalog Generator
+        env:
+          AJD_LOGIN_ID: ${{ secrets.AJD_LOGIN_ID }}
+          AJD_LOGIN_PASS: ${{ secrets.AJD_LOGIN_PASS }}
         run: |
           python scripts/build_catalog.py
 

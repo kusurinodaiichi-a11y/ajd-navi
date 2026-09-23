@@ -23,10 +23,10 @@ if sys.stdout.encoding != 'utf-8':
         pass
 
 BASE_URL = 'https://www.ajd-navi.jp'
-LOGIN_ID = 'qbaa0001'
-LOGIN_PASS = '7812'
-START_DATE = '2026/07/01'
-END_DATE = '2026/12/31'
+LOGIN_ID = os.environ.get('AJD_LOGIN_ID', '')
+LOGIN_PASS = os.environ.get('AJD_LOGIN_PASS', '')
+START_DATE = os.environ.get('START_DATE', '2026/07/01')
+END_DATE = os.environ.get('END_DATE', '2026/12/31')
 
 GROUPS = [
     {
