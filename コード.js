@@ -462,9 +462,92 @@ function formatDateToYYYYMMDD(dateStr) {
 }
 
 /**
+ * 商品マスタ登録済みJANリストを取得（Google Drive または Firestore）
+ */
+function fetchRegisteredMasterJans() {
+  const masterJans = new Set();
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const dataFolderId = props.getProperty('DATA_FOLDER_ID');
+    
+    let targetFile = null;
+    let lastUpdatedTime = 0;
+
+    if (dataFolderId) {
+      try {
+        const folder = DriveApp.getFolderById(dataFolderId);
+        const files = folder.searchFiles("title contains '商品マスタ_全件_' and trashed = false");
+        while (files.hasNext()) {
+          const file = files.next();
+          if (file.getName().endsWith('.csv') && file.getLastUpdated().getTime() > lastUpdatedTime) {
+            lastUpdatedTime = file.getLastUpdated().getTime();
+            targetFile = file;
+          }
+        }
+      } catch (e) {
+        console.warn('フォルダ検索エラー:', e);
+      }
+    }
+
+    if (!targetFile) {
+      const files = DriveApp.searchFiles("title contains '商品マスタ_全件_' and trashed = false");
+      while (files.hasNext()) {
+        const file = files.next();
+        if (file.getName().endsWith('.csv') && file.getLastUpdated().getTime() > lastUpdatedTime) {
+          lastUpdatedTime = file.getLastUpdated().getTime();
+          targetFile = file;
+        }
+      }
+    }
+
+    if (targetFile) {
+      console.log(`商品マスタCSVを読み込みます: ${targetFile.getName()}`);
+      const rawText = targetFile.getBlob().getDataAsString('Shift_JIS');
+      const csvData = Utilities.parseCsv(rawText);
+      if (csvData.length > 0) {
+        const header = csvData[0];
+        const idxJan = header.indexOf('商品コード');
+        const targetIdx = (idxJan !== -1) ? idxJan : 0;
+        for (let i = 1; i < csvData.length; i++) {
+          const jan = String(csvData[i][targetIdx]).trim();
+          if (jan) {
+            masterJans.add(jan);
+          }
+        }
+      }
+      console.log(`商品マスタから ${masterJans.size} 件のJANを取得しました`);
+      return masterJans;
+    }
+
+    const jsonFiles = DriveApp.searchFiles("title = 'products_index.json' and trashed = false");
+    if (jsonFiles.hasNext()) {
+      const jFile = jsonFiles.next();
+      const content = JSON.parse(jFile.getBlob().getDataAsString('UTF-8'));
+      if (Array.isArray(content)) {
+        content.forEach(item => {
+          if (item && item.jan) masterJans.add(String(item.jan).trim());
+        });
+      } else if (typeof content === 'object') {
+        Object.keys(content).forEach(jan => masterJans.add(jan.trim()));
+      }
+      console.log(`products_index.json から ${masterJans.size} 件のJANを取得しました`);
+      return masterJans;
+    }
+
+    console.warn('商品マスタファイルが見つかりませんでした');
+  } catch (err) {
+    console.error('商品マスタJAN取得中にエラーが発生しました:', err);
+  }
+  return masterJans;
+}
+
+/**
  * データの突合・除外・短縮・ソート・グループ別まとめ
  */
 function mergeAndFormatData(newRenewalList, discontinuedList) {
+  // 登録済み商品マスタJANを取得
+  const registeredJans = fetchRegisteredMasterJans();
+
   // 終売品を JAN をキーにしたマップに登録
   const discMap = new Map();
   for (const item of discontinuedList) {
@@ -514,6 +597,7 @@ function mergeAndFormatData(newRenewalList, discontinuedList) {
     }
 
     const rightCombinedName = combineNameAndSpec(newName, newSpec);
+    const isMaster = (newJan && registeredJans.has(newJan)) || (leftJan && registeredJans.has(leftJan));
 
     resultRows.push({
       groupId: item._groupId,
@@ -529,7 +613,8 @@ function mergeAndFormatData(newRenewalList, discontinuedList) {
       rightJan: newJan,
       rightName: rightCombinedName,
       rightDate: newReleaseDate,
-      kikaku: isKikaku
+      kikaku: isKikaku,
+      isMasterRegistered: isMaster
     });
   }
 
@@ -547,6 +632,7 @@ function mergeAndFormatData(newRenewalList, discontinuedList) {
     const name = (item['商品名称'] || '').trim();
     const spec = (item['規格'] || '').trim();
     const discDate = formatDateToYYYYMMDD(item['処理日（終売品アイコン表示開始日）'] || '');
+    const isMaster = jan && registeredJans.has(jan);
 
     resultRows.push({
       groupId: item._groupId,
@@ -562,7 +648,8 @@ function mergeAndFormatData(newRenewalList, discontinuedList) {
       rightJan: '',
       rightName: '',
       rightDate: '',
-      kikaku: ''
+      kikaku: '',
+      isMasterRegistered: isMaster
     });
   }
 
@@ -621,12 +708,12 @@ function writeToSpreadsheet(groupMap) {
   // 既存の内容をクリア
   sheet.clear();
 
-  // ヘッダー行定義 (A〜J列)
+  // ヘッダー行定義 (A〜K列)
   const headers = [
     'カテゴリー名', 'メーカー名',
     'JAN', '商品名称', '処理日（終売品アイコン表示開始日）',
     '',
-    'JAN', '商品名称', '発売日', '企画品'
+    'JAN', '商品名称', '発売日', '企画品', '商品マスタ'
   ];
 
   const outputValues = [headers];
@@ -638,7 +725,7 @@ function writeToSpreadsheet(groupMap) {
     if (group.rows.length === 0) continue;
 
     // グループ見出し行を挿入
-    outputValues.push([group.name, '', '', '', '', '', '', '', '', '']);
+    outputValues.push([group.name, '', '', '', '', '', '', '', '', '', '']);
     const currentSectionHeaderIndex = outputValues.length;
     sectionHeaderRowIndices.push(currentSectionHeaderIndex);
 
@@ -648,7 +735,7 @@ function writeToSpreadsheet(groupMap) {
     for (const r of group.rows) {
       // メーカーが変わった境目に1行空白行を挿入（グループ見出し直後を除く）
       if (lastMaker !== null && lastMaker !== r.maker) {
-        outputValues.push(['', '', '', '', '', '', '', '', '', '']);
+        outputValues.push(['', '', '', '', '', '', '', '', '', '', '']);
         blankRowIndices.push(outputValues.length);
       }
       lastMaker = r.maker;
@@ -663,7 +750,8 @@ function writeToSpreadsheet(groupMap) {
         r.rightJan ? "'" + r.rightJan : '',
         r.rightName,
         r.rightDate,
-        r.kikaku
+        r.kikaku,
+        r.isMasterRegistered ? 'マスタ登録済み' : ''
       ]);
       totalDataRowCount++;
     }
@@ -679,7 +767,7 @@ function writeToSpreadsheet(groupMap) {
   sheet.getRange(1, 1, 1, 2).setBackground('#EFEFEF').setFontWeight('bold').setHorizontalAlignment('center'); // 分類・メーカー
   sheet.getRange(1, 3, 1, 3).setBackground('#F4CCCC').setFontWeight('bold').setHorizontalAlignment('center'); // 旧商品・終売品側 (薄赤)
   sheet.getRange(1, 6).setBackground('#FFFFFF'); // 空白列
-  sheet.getRange(1, 7, 1, 4).setBackground('#D9EAD3').setFontWeight('bold').setHorizontalAlignment('center'); // 新商品・リニューアル品側 (薄緑)
+  sheet.getRange(1, 7, 1, 5).setBackground('#D9EAD3').setFontWeight('bold').setHorizontalAlignment('center'); // 新商品・リニューアル品・商品マスタ側 (薄緑)
 
   // 2. 見出し行の装飾（医薬品類 / その他）
   for (const rowIdx of sectionHeaderRowIndices) {
@@ -694,15 +782,16 @@ function writeToSpreadsheet(groupMap) {
   if (totalRows > 1) {
     // 全体枠線（薄いグレー）
     sheet.getRange(2, 1, totalRows - 1, 5).setBorder(true, true, true, true, true, true, '#E0E0E0', SpreadsheetApp.BorderStyle.SOLID);
-    sheet.getRange(2, 7, totalRows - 1, 4).setBorder(true, true, true, true, true, true, '#E0E0E0', SpreadsheetApp.BorderStyle.SOLID);
+    sheet.getRange(2, 7, totalRows - 1, 5).setBorder(true, true, true, true, true, true, '#E0E0E0', SpreadsheetApp.BorderStyle.SOLID);
 
-    // 中央揃え（カテゴリー、JAN、日付、企画品）
+    // 中央揃え（カテゴリー、JAN、日付、企画品、商品マスタ）
     sheet.getRange(2, 1, totalRows - 1, 1).setHorizontalAlignment('center'); // A列: カテゴリー名
     sheet.getRange(2, 3, totalRows - 1, 1).setHorizontalAlignment('center'); // C列: 旧JAN
     sheet.getRange(2, 5, totalRows - 1, 1).setHorizontalAlignment('center'); // E列: 処理日
     sheet.getRange(2, 7, totalRows - 1, 1).setHorizontalAlignment('center'); // G列: 新JAN
     sheet.getRange(2, 9, totalRows - 1, 1).setHorizontalAlignment('center'); // I列: 発売日
     sheet.getRange(2, 10, totalRows - 1, 1).setHorizontalAlignment('center'); // J列: 企画品
+    sheet.getRange(2, 11, totalRows - 1, 1).setHorizontalAlignment('center'); // K列: 商品マスタ
   }
 
   // 4. メーカー区切り空白行の装飾（枠線なし、薄い背景色）
@@ -723,20 +812,21 @@ function writeToSpreadsheet(groupMap) {
   sheet.setColumnWidth(8, 300); // H列: 新商品名称（規格含む）
   sheet.setColumnWidth(9, 110); // I列: 発売日
   sheet.setColumnWidth(10, 80); // J列: 企画品
-  sheet.setColumnWidth(11, 160); // K列: 更新日時用
+  sheet.setColumnWidth(11, 110); // K列: 商品マスタ
+  sheet.setColumnWidth(12, 160); // L列: 更新日時用
 
   // 1行目を固定
   sheet.setFrozenRows(1);
 
-  // K1セルに更新日時を出力
+  // L1セルに更新日時を出力
   const now = new Date();
   const timestampStr = Utilities.formatDate(now, 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
-  const cellK1 = sheet.getRange('K1');
-  cellK1.setValue(`最終更新: ${timestampStr}`);
-  cellK1.setFontWeight('normal');
-  cellK1.setFontSize(9);
-  cellK1.setFontColor('#555555');
-  cellK1.setHorizontalAlignment('left');
+  const cellL1 = sheet.getRange('L1');
+  cellL1.setValue(`最終更新: ${timestampStr}`);
+  cellL1.setFontWeight('normal');
+  cellL1.setFontSize(9);
+  cellL1.setFontColor('#555555');
+  cellL1.setHorizontalAlignment('left');
 
   console.log(`スプレッドシートへの出力が完了しました（データ総行数: ${totalDataRowCount} 行、更新日時: ${timestampStr}）`);
 }

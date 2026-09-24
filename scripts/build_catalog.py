@@ -485,8 +485,69 @@ def download_product_images(session, products, output_dir='images/products'):
 
     return len(success_jans)
 
+def load_master_registered_jans():
+    """
+    自社商品マスタ登録済みJANコードのセットを読み込む
+    探索パス:
+    1. data/master_jans.json
+    2. data/products_index.json
+    3. scripts/products_index.json
+    4. C:/Users/PC2/Documents/antigravity/rakuten-api-manager/src/gas_scripts/products_index.json
+    5. カレント配下の「商品マスタ_全件_*.csv」
+    """
+    candidate_paths = [
+        'data/master_jans.json',
+        'data/products_index.json',
+        'scripts/products_index.json',
+        '../rakuten-api-manager/src/products_index.json'
+    ]
+    
+    master_jans = set()
+    for p in candidate_paths:
+        if os.path.exists(p):
+            try:
+                with open(p, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        for item in data:
+                            if isinstance(item, dict) and 'jan' in item:
+                                master_jans.add(str(item['jan']).strip())
+                            elif isinstance(item, str):
+                                master_jans.add(item.strip())
+                    elif isinstance(data, dict):
+                        for k in data.keys():
+                            master_jans.add(str(k).strip())
+                print(f"商品マスタJANを読み込みました: {p} ({len(master_jans)} 件)")
+                return master_jans
+            except Exception as e:
+                print(f"商品マスタファイル {p} の読み込みに失敗しました: {e}")
+
+    # CSV ファイルの探索（商品マスタ_全件_*.csv）
+    for root, dirs, files in os.walk('.'):
+        for file in files:
+            if '商品マスタ' in file and file.endswith('.csv'):
+                csv_path = os.path.join(root, file)
+                try:
+                    with open(csv_path, 'r', encoding='cp932', errors='replace') as f:
+                        reader = csv.reader(f)
+                        header = next(reader, None)
+                        if header:
+                            idx = header.index('商品コード') if '商品コード' in header else 0
+                            for row in reader:
+                                if len(row) > idx and row[idx].strip():
+                                    master_jans.add(row[idx].strip())
+                    print(f"商品マスタCSVを読み込みました: {csv_path} ({len(master_jans)} 件)")
+                    return master_jans
+                except Exception as e:
+                    print(f"CSV読み込みエラー: {e}")
+
+    print("商品マスタファイルは見つかりませんでした（マスタ登録済み判定は未登録として進行）")
+    return master_jans
+
 def main():
     print("=== AJD-Navi Web カタログ生成処理 開始 (複数期間対応版) ===")
+    master_registered_jans = load_master_registered_jans()
+
     session = login_ajd()
     print("AJD-navi ログイン成功")
 
@@ -520,6 +581,10 @@ def main():
 
         # Download product images to images/products/{JAN}.jpg
         total_with_images = download_product_images(session, all_products)
+
+        # 商品マスタ登録フラグの付与
+        for p in all_products:
+            p['isMasterRegistered'] = (p.get('jan') in master_registered_jans) or (p.get('prevJan') in master_registered_jans)
 
         # Sort products: Genre -> Maker -> Date -> Category
         all_products.sort(key=lambda x: (

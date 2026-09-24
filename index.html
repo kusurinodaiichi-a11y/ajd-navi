@@ -69,7 +69,7 @@
           </select>
         </div>
 
-        <!-- 区分（新商品/リニューアル/企画品） -->
+        <!-- 区分（新商品/リニューアル/企画品/AJD） -->
         <div class="filter-item">
           <label>種別:</label>
           <select id="type-filter">
@@ -78,6 +78,16 @@
             <option value="リニューアル品">リニューアル品</option>
             <option value="企画品">企画品</option>
             <option value="AJD">AJD商品</option>
+          </select>
+        </div>
+
+        <!-- 商品マスタ登録フィルター -->
+        <div class="filter-item">
+          <label>商品マスタ:</label>
+          <select id="master-filter">
+            <option value="all">すべて</option>
+            <option value="registered">マスタ登録済み</option>
+            <option value="unregistered">未登録</option>
           </select>
         </div>
 
@@ -112,6 +122,7 @@
               <th class="col-name">新商品・リニューアル品</th>
               <th class="col-date">発売日</th>
               <th class="col-badge">種別</th>
+              <th class="col-master">商品マスタ</th>
             </tr>
           </thead>
           <tbody id="mokuji-table-body">

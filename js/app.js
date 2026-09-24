@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const groupFilter = document.getElementById('group-filter');
   const monthFilter = document.getElementById('month-filter');
   const typeFilter = document.getElementById('type-filter');
+  const masterFilter = document.getElementById('master-filter');
   const noResults = document.getElementById('no-results');
   const btnBackToTop = document.getElementById('btn-back-to-top');
   const btnLock = document.getElementById('btn-lock');
@@ -257,6 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const typeClass = p.itemType === 'リニューアル品' ? 'renewal' : '';
           const kikakuBadgeHtml = p.isKikaku ? '<span class="badge-kikaku" style="margin-left: 6px;">企画品</span>' : '';
           const ajdBadgeHtml = p.isAjd ? '<span class="badge-ajd">AJD</span>' : '';
+          const masterBadgeHtml = p.isMasterRegistered ? '<span class="badge-master">マスタ登録済み</span>' : '';
 
           const imgPlaceholder = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22150%22%20height%3D%22150%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f0f0f0%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-size%3D%2212%22%20text-anchor%3D%22middle%22%20fill%3D%22%23999999%22%20dy%3D%22.3em%22%3E%E7%94%BB%E5%83%8F%E6%BA%96%E5%82%99%E4%B8%AD%3C%2Ftext%3E%3C%2Fsvg%3E';
 
@@ -264,7 +266,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <!-- カード上部ヘッダー -->
             <div class="card-top-header">
               <div class="card-maker" title="${escapeHtml(p.rawMaker)}">${escapeHtml(p.maker)}</div>
-              <div class="card-type ${typeClass}">${escapeHtml(p.itemType)}</div>
+              <div class="card-top-badges">
+                ${masterBadgeHtml}
+                <div class="card-type ${typeClass}">${escapeHtml(p.itemType)}</div>
+              </div>
             </div>
 
             <!-- 商品名称・規格バー -->
@@ -376,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
           currentGenreId = p.genreId;
           const trGenre = document.createElement('tr');
           trGenre.className = 'genre-header-row';
-          trGenre.innerHTML = `<td colspan="10">${escapeHtml(p.genreName)}</td>`;
+          trGenre.innerHTML = `<td colspan="11">${escapeHtml(p.genreName)}</td>`;
           mokujiTableBody.appendChild(trGenre);
           lastMaker = null;
         }
@@ -384,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lastMaker !== null && lastMaker !== p.maker) {
           const trBlank = document.createElement('tr');
           trBlank.className = 'maker-blank-row';
-          trBlank.innerHTML = `<td colspan="10"></td>`;
+          trBlank.innerHTML = `<td colspan="11"></td>`;
           mokujiTableBody.appendChild(trBlank);
         }
         lastMaker = p.maker;
@@ -403,6 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const ajdBadgeHtml = p.isAjd ? ' <span class="badge-ajd">AJD</span>' : '';
+        const masterTableBadgeHtml = p.isMasterRegistered ? '<span class="badge-master">マスタ登録済み</span>' : '-';
 
         tr.innerHTML = `
           <td class="col-cat">${escapeHtml(p.categoryName)}</td>
@@ -415,6 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td class="col-name"><strong>${escapeHtml(p.fullName)}</strong>${ajdBadgeHtml}</td>
           <td class="col-date">${escapeHtml(p.releaseDateDisplay || '')}</td>
           <td class="col-badge">${badgeHtml}${ajdBadgeHtml}</td>
+          <td class="col-master">${masterTableBadgeHtml}</td>
         `;
 
         tr.addEventListener('click', () => {
@@ -443,6 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const selectedGroup = groupFilter.value;
       const selectedMonth = monthFilter ? monthFilter.value : 'all';
       const selectedType = typeFilter.value;
+      const selectedMaster = masterFilter ? masterFilter.value : 'all';
 
       const filtered = products.filter((p) => {
         if (selectedGroup !== 'all' && p.genreId.toString() !== selectedGroup) {
@@ -456,8 +464,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedType === 'リニューアル品' && p.itemType !== 'リニューアル品') return false;
         if (selectedType === 'AJD' && !p.isAjd) return false;
 
+        if (selectedMaster === 'registered' && !p.isMasterRegistered) return false;
+        if (selectedMaster === 'unregistered' && p.isMasterRegistered) return false;
+
         if (keyword) {
-          const text = `${p.fullName} ${p.maker} ${p.rawMaker} ${p.jan} ${p.prevJan} ${p.categoryName} ${p.features} ${p.isAjd ? 'ajd' : ''}`.toLowerCase();
+          const text = `${p.fullName} ${p.maker} ${p.rawMaker} ${p.jan} ${p.prevJan} ${p.categoryName} ${p.features} ${p.isAjd ? 'ajd' : ''} ${p.isMasterRegistered ? 'マスタ登録済み' : ''}`.toLowerCase();
           if (!text.includes(keyword)) {
             return false;
           }
@@ -477,6 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
     groupFilter.addEventListener('change', applyFilters);
     if (monthFilter) monthFilter.addEventListener('change', applyFilters);
     typeFilter.addEventListener('change', applyFilters);
+    if (masterFilter) masterFilter.addEventListener('change', applyFilters);
 
     function switchView(viewName) {
       tabBtns.forEach(btn => {
