@@ -37,6 +37,7 @@ const CONFIG = {
   BASE_URL: 'https://www.ajd-navi.jp',
   LOGIN_ID: PropertiesService.getScriptProperties().getProperty('AJD_LOGIN_ID') || 'qbaa0001',
   LOGIN_PASS: PropertiesService.getScriptProperties().getProperty('AJD_LOGIN_PASS') || '7812',
+  MASTER_FOLDER_ID: PropertiesService.getScriptProperties().getProperty('DATA_FOLDER_ID') || '1y1UR2QdDoEnAKAGw1FDg8XdvJJq1vE6o',
   START_DATE: '2026/07/01',
   END_DATE: '2026/12/31',
   GROUPS: [
@@ -462,76 +463,119 @@ function formatDateToYYYYMMDD(dateStr) {
 }
 
 /**
- * 商品マスタ登録済みJANリストを取得（Google Drive または Firestore）
+ * 商品マスタ登録済みJANリストを取得（Google Driveの指定フォルダ内から最新日付のCSVを読み込み）
  */
 function fetchRegisteredMasterJans() {
   const masterJans = new Set();
   try {
-    const props = PropertiesService.getScriptProperties();
-    const dataFolderId = props.getProperty('DATA_FOLDER_ID');
-    
+    const folderId = CONFIG.MASTER_FOLDER_ID;
     let targetFile = null;
+    let latestDateNum = 0;
     let lastUpdatedTime = 0;
 
-    if (dataFolderId) {
+    if (folderId) {
       try {
-        const folder = DriveApp.getFolderById(dataFolderId);
+        const folder = DriveApp.getFolderById(folderId);
         const files = folder.searchFiles("title contains '商品マスタ_全件_' and trashed = false");
         while (files.hasNext()) {
           const file = files.next();
-          if (file.getName().endsWith('.csv') && file.getLastUpdated().getTime() > lastUpdatedTime) {
-            lastUpdatedTime = file.getLastUpdated().getTime();
-            targetFile = file;
+          const name = file.getName();
+          if (name.endsWith('.csv')) {
+            // ファイル名から日付（YYYYMMDD）を抽出して比較
+            const dateMatch = name.match(/(\d{8})/);
+            const dateNum = dateMatch ? parseInt(dateMatch[1], 10) : 0;
+            const updatedTime = file.getLastUpdated().getTime();
+
+            if (dateNum > latestDateNum || (dateNum === latestDateNum && updatedTime > lastUpdatedTime)) {
+              latestDateNum = dateNum;
+              lastUpdatedTime = updatedTime;
+              targetFile = file;
+            }
           }
         }
       } catch (e) {
-        console.warn('フォルダ検索エラー:', e);
+        console.warn('フォルダ指定検索エラー:', e);
       }
     }
 
+    // フォルダ指定で見つからなかった場合の全体検索フォールバック
     if (!targetFile) {
       const files = DriveApp.searchFiles("title contains '商品マスタ_全件_' and trashed = false");
       while (files.hasNext()) {
         const file = files.next();
-        if (file.getName().endsWith('.csv') && file.getLastUpdated().getTime() > lastUpdatedTime) {
-          lastUpdatedTime = file.getLastUpdated().getTime();
-          targetFile = file;
+        const name = file.getName();
+        if (name.endsWith('.csv')) {
+          const dateMatch = name.match(/(\d{8})/);
+          const dateNum = dateMatch ? parseInt(dateMatch[1], 10) : 0;
+          const updatedTime = file.getLastUpdated().getTime();
+
+          if (dateNum > latestDateNum || (dateNum === latestDateNum && updatedTime > lastUpdatedTime)) {
+            latestDateNum = dateNum;
+            lastUpdatedTime = updatedTime;
+            targetFile = file;
+          }
         }
       }
     }
 
     if (targetFile) {
-      console.log(`商品マスタCSVを読み込みます: ${targetFile.getName()}`);
+      console.log(`最新の商品マスタCSVを読み込みます: ${targetFile.getName()} (更新日: ${latestDateNum || targetFile.getLastUpdated()})`);
       const rawText = targetFile.getBlob().getDataAsString('Shift_JIS');
       const csvData = Utilities.parseCsv(rawText);
       if (csvData.length > 0) {
         const header = csvData[0];
         const idxJan = header.indexOf('商品コード');
         const targetIdx = (idxJan !== -1) ? idxJan : 0;
+        
         for (let i = 1; i < csvData.length; i++) {
-          const jan = String(csvData[i][targetIdx]).trim();
-          if (jan) {
-            masterJans.add(jan);
+          const rawCode = String(csvData[i][targetIdx] || '').trim();
+          if (rawCode) {
+            masterJans.add(rawCode);
+            // 先頭の0を除去した形式も登録
+            const cleanCode = rawCode.replace(/^0+/, '');
+            if (cleanCode) {
+              masterJans.add(cleanCode);
+            }
+            // 14桁で先頭が0の場合は13桁も登録
+            if (rawCode.length === 14 && rawCode.startsWith('0')) {
+              masterJans.add(rawCode.substring(1));
+            }
           }
         }
       }
-      console.log(`商品マスタから ${masterJans.size} 件のJANを取得しました`);
+      console.log(`商品マスタから ${masterJans.size} 件のJANインデックスを取得しました`);
       return masterJans;
     }
 
-    const jsonFiles = DriveApp.searchFiles("title = 'products_index.json' and trashed = false");
-    if (jsonFiles.hasNext()) {
-      const jFile = jsonFiles.next();
-      const content = JSON.parse(jFile.getBlob().getDataAsString('UTF-8'));
-      if (Array.isArray(content)) {
-        content.forEach(item => {
-          if (item && item.jan) masterJans.add(String(item.jan).trim());
-        });
-      } else if (typeof content === 'object') {
-        Object.keys(content).forEach(jan => masterJans.add(jan.trim()));
+    // products_index.json もチェック
+    if (folderId) {
+      try {
+        const folder = DriveApp.getFolderById(folderId);
+        const jsonFiles = folder.getFilesByName("products_index.json");
+        if (jsonFiles.hasNext()) {
+          const jFile = jsonFiles.next();
+          const content = JSON.parse(jFile.getBlob().getDataAsString('UTF-8'));
+          if (Array.isArray(content)) {
+            content.forEach(item => {
+              if (item && item.jan) {
+                const j = String(item.jan).trim();
+                masterJans.add(j);
+                masterJans.add(j.replace(/^0+/, ''));
+              }
+            });
+          } else if (typeof content === 'object') {
+            Object.keys(content).forEach(k => {
+              const j = String(k).trim();
+              masterJans.add(j);
+              masterJans.add(j.replace(/^0+/, ''));
+            });
+          }
+          console.log(`products_index.json から ${masterJans.size} 件のJANを取得しました`);
+          return masterJans;
+        }
+      } catch (e) {
+        console.warn('products_index.json 検索エラー:', e);
       }
-      console.log(`products_index.json から ${masterJans.size} 件のJANを取得しました`);
-      return masterJans;
     }
 
     console.warn('商品マスタファイルが見つかりませんでした');

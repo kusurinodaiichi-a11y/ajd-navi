@@ -489,21 +489,67 @@ def load_master_registered_jans():
     """
     自社商品マスタ登録済みJANコードのセットを読み込む
     探索パス:
-    1. data/master_jans.json
-    2. data/products_index.json
-    3. scripts/products_index.json
-    4. C:/Users/PC2/Documents/antigravity/rakuten-api-manager/src/gas_scripts/products_index.json
-    5. カレント配下の「商品マスタ_全件_*.csv」
+    1. G:/マイドライブ/100sysnet/ 配下の最新「商品マスタ_全件_*.csv」
+    2. data/master_jans.json, data/products_index.json
+    3. カレント配下の「商品マスタ_全件_*.csv」
     """
-    candidate_paths = [
+    master_jans = set()
+
+    # 1. Google Drive (Gドライブ) またはカレントからの最新CSV探索
+    search_dirs = [
+        r'G:\マイドライブ\100sysnet',
+        r'G:\マイドライブ\GAS411楽天商品別原価自動入力',
+        'data',
+        '.'
+    ]
+
+    latest_csv_path = None
+    latest_date_num = 0
+
+    for s_dir in search_dirs:
+        if os.path.exists(s_dir):
+            try:
+                for fname in os.listdir(s_dir):
+                    if '商品マスタ' in fname and fname.endswith('.csv'):
+                        fpath = os.path.join(s_dir, fname)
+                        m = re.search(r'(\d{8})', fname)
+                        date_num = int(m.group(1)) if m else int(os.path.getmtime(fpath))
+                        if date_num > latest_date_num:
+                            latest_date_num = date_num
+                            latest_csv_path = fpath
+            except Exception as e:
+                pass
+
+    if latest_csv_path:
+        print(f"最新の商品マスタCSVを読み込みます: {latest_csv_path}")
+        try:
+            with open(latest_csv_path, 'r', encoding='cp932', errors='replace') as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+                if header:
+                    idx = header.index('商品コード') if '商品コード' in header else 0
+                    for row in reader:
+                        if len(row) > idx:
+                            raw_code = row[idx].strip()
+                            if raw_code:
+                                master_jans.add(raw_code)
+                                clean_code = raw_code.lstrip('0')
+                                if clean_code:
+                                    master_jans.add(clean_code)
+                                if len(raw_code) == 14 and raw_code.startswith('0'):
+                                    master_jans.add(raw_code[1:])
+            print(f"商品マスタCSVから {len(master_jans)} 件のJANインデックスを取得しました")
+            return master_jans
+        except Exception as e:
+            print(f"CSV読み込みエラー: {e}")
+
+    # 2. JSON ファイルの探索フォールバック
+    candidate_json = [
         'data/master_jans.json',
         'data/products_index.json',
-        'scripts/products_index.json',
-        '../rakuten-api-manager/src/products_index.json'
+        'scripts/products_index.json'
     ]
-    
-    master_jans = set()
-    for p in candidate_paths:
+    for p in candidate_json:
         if os.path.exists(p):
             try:
                 with open(p, 'r', encoding='utf-8') as f:
@@ -511,35 +557,22 @@ def load_master_registered_jans():
                     if isinstance(data, list):
                         for item in data:
                             if isinstance(item, dict) and 'jan' in item:
-                                master_jans.add(str(item['jan']).strip())
+                                j = str(item['jan']).strip()
+                                master_jans.add(j)
+                                master_jans.add(j.lstrip('0'))
                             elif isinstance(item, str):
-                                master_jans.add(item.strip())
+                                j = item.strip()
+                                master_jans.add(j)
+                                master_jans.add(j.lstrip('0'))
                     elif isinstance(data, dict):
                         for k in data.keys():
-                            master_jans.add(str(k).strip())
-                print(f"商品マスタJANを読み込みました: {p} ({len(master_jans)} 件)")
+                            j = str(k).strip()
+                            master_jans.add(j)
+                            master_jans.add(j.lstrip('0'))
+                print(f"JSONインデックスから {len(master_jans)} 件のJANを取得しました: {p}")
                 return master_jans
             except Exception as e:
-                print(f"商品マスタファイル {p} の読み込みに失敗しました: {e}")
-
-    # CSV ファイルの探索（商品マスタ_全件_*.csv）
-    for root, dirs, files in os.walk('.'):
-        for file in files:
-            if '商品マスタ' in file and file.endswith('.csv'):
-                csv_path = os.path.join(root, file)
-                try:
-                    with open(csv_path, 'r', encoding='cp932', errors='replace') as f:
-                        reader = csv.reader(f)
-                        header = next(reader, None)
-                        if header:
-                            idx = header.index('商品コード') if '商品コード' in header else 0
-                            for row in reader:
-                                if len(row) > idx and row[idx].strip():
-                                    master_jans.add(row[idx].strip())
-                    print(f"商品マスタCSVを読み込みました: {csv_path} ({len(master_jans)} 件)")
-                    return master_jans
-                except Exception as e:
-                    print(f"CSV読み込みエラー: {e}")
+                print(f"JSON読み込みエラー: {e}")
 
     print("商品マスタファイルは見つかりませんでした（マスタ登録済み判定は未登録として進行）")
     return master_jans
