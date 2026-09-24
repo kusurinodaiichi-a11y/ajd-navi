@@ -485,24 +485,149 @@ def download_product_images(session, products, output_dir='images/products'):
 
     return len(success_jans)
 
-def load_master_registered_jans():
+FIREBASE_PROJECT_ID = os.environ.get('FIREBASE_PROJECT_ID', 'drug-search-app-73c9c')
+FIREBASE_CLIENT_EMAIL = os.environ.get('FIREBASE_CLIENT_EMAIL', 'firebase-adminsdk-fbsvc@drug-search-app-73c9c.iam.gserviceaccount.com')
+FIREBASE_PRIVATE_KEY = os.environ.get('FIREBASE_PRIVATE_KEY', """-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDN0LmPytTCeCFt
+uuuaynwFQBMjfmKg2mdRnh1hqZRwV6x8fk45tcZxQwaYnxmRPGcsnPcg8laPvkx1
+vfc5Q3z+mB1MZE2pnCA8RwQ5JPBVwTzVZAmNZUWYLyrTV0TPtHajVjA79qGe7chx
+h34HAGaDvGuXjg81ZMC18qjn8sfEjdnPpwvd35jX3nSZoLuqlb4nq8QCAu3k6wHS
+TsQYD7I3t//71wHXrVPYufJaKHezbB5NyBsVk+VOiI6HuDUhRNGe5GVC4SmRQSIq
+xyoWWhsrMVSyIZ/wLbfybZcdBiY/tgG5WQceq5ux7bcqJs6NYZLWuiGJHKTJva2d
+GnfVQ4AdAgMBAAECggEAD7ozc9l8CKBFba0q89klQQF0dPHjd4c4/fOnKx9aSHtq
+otjEAYTydRU6G8+MlJyZBb+44ruiAbn4/cZWbfnKQ2o8UuoXRS65B+IlYHiCJQtv
+Kp9KW5Oxjb+M9jlk+LpBlpmvdeWS1CI3fvVrm/1b2BU944bngp0AXOb+ITtcKJjL
+NdFXcjgOu0UFzaFS+X3bLB7IyTFvHCZ9JsvhsRmiuL5S7+tvIxTRzWF1zLfubaXp
+m0K7tYbCMil2QyUGPdABP3ey9jdb6IIt7zHfF8g7lO3DLdrVXDE2k9VyZtwXDLgf
+N/uWb73iJS8/yCcfmanTPJn8AVgixLmZbuYm+jufwQKBgQD0WVG1pDRPU1a1MHim
+j5hVwtuOCJG+ce+bIKak6sDpgEUPx/kdeHtTzZqDXMx8dkkql9Riait6gavG6/FV
+UfGR+Y7cvviCaAVee8E2nkA/AbXT7bUDn8LB3ngMEnlM3Qp4o+Mg1KMWs4Ifuh5Q
+9MObfd+JQFMiCM1WZzBtTfQ6mwKBgQDXoQo7DYdAWc7ZcptfzG4J04mfExecWii6
+QfY0mLC8U5zfHd3wt1NIuSq4sWlQ1Qrcv/Qu13Knr6PqIibn2ACwirRI04jZ4Inz
+3niLGnynJOpSXxt5moKJ27pWESuggCgQB9Jm79gq3nOEP2yx5qcfGGHsxBO6h99C
+VDKIdtGfpwKBgQC/B2VeAHX03k6XcMGiVfjec2x6ajCnFyQfvzMJE46l/mX/pHMZ
+myuvpLn7oP0tALzK09By8FX1fJLy/Vq7PUkCunv6EELwkKpB57ZyIN5RY+DnQpuV
+rbzxHB/2MCss8FJTZq0W6aZnBQfiDfvNhs22Ln4oK2XS4dbGif3ONneNqQKBgHjV
+4BvTqvWe3lHw7a0zrH6JMtgYJOUTiTtHd6dl4bTHzmMiI5ufwGZCjfROR0xq9tla
+IIaXacMapGqylMbbvxcvw3QERu6B7AzjoP2i7DPmdgGPFqCAu6JxpexRVvdsmgbR
+u1DAG416d5WmzUysiv7b9RRvlPa06aIL+P2MSFCFAoGACDdeno0UhrGJz6gVsKEb
+oZibzL10TZpGtmzWZVlZHLBX7gO7FGYYD0GRq2ds46xYJNZ4qdPwr8WDcLuCZ/dT
+HN+dF9O+V/pZxSCp5V/gSsvwkCjliAYzI6S5c2VvhRTwb3xua/NRccjPB61I1bB3
+H8ifggwf9mY9chdUrSyEJaM=
+-----END PRIVATE KEY-----""")
+
+def get_firestore_access_token():
+    if not FIREBASE_PRIVATE_KEY or not FIREBASE_CLIENT_EMAIL:
+        return None
+    try:
+        from cryptography.hazmat.primitives.serialization import load_pem_private_key
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import padding
+        
+        def b64url(b):
+            return base64.urlsafe_b64encode(b).decode('utf-8').rstrip('=')
+
+        header = {"alg": "RS256", "typ": "JWT"}
+        now = int(time.time())
+        payload = {
+            "iss": FIREBASE_CLIENT_EMAIL,
+            "scope": "https://www.googleapis.com/auth/datastore",
+            "aud": "https://oauth2.googleapis.com/token",
+            "exp": now + 3600,
+            "iat": now
+        }
+        
+        hdr_b64 = b64url(json.dumps(header).encode('utf-8'))
+        pay_b64 = b64url(json.dumps(payload).encode('utf-8'))
+        signing_input = f"{hdr_b64}.{pay_b64}".encode('utf-8')
+        
+        formatted_key = FIREBASE_PRIVATE_KEY.replace('\\n', '\n').strip()
+        private_key = load_pem_private_key(formatted_key.encode('utf-8'), password=None)
+        signature = private_key.sign(
+            signing_input,
+            padding.PKCS1v15(),
+            hashes.SHA256()
+        )
+        sig_b64 = b64url(signature)
+        jwt_token = f"{hdr_b64}.{pay_b64}.{sig_b64}"
+        
+        res = requests.post("https://oauth2.googleapis.com/token", data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            "assertion": jwt_token
+        }, timeout=15)
+        return res.json().get("access_token")
+    except Exception as e:
+        print(f"Firestoreアクセストークン生成エラー: {e}")
+        return None
+
+def fetch_firestore_registered_jans(target_jans):
     """
-    自社商品マスタ登録済みJANコードのセットを読み込む
-    探索パス:
-    1. G:/マイドライブ/100sysnet/ 配下の最新「商品マスタ_全件_*.csv」
-    2. data/master_jans.json, data/products_index.json
-    3. カレント配下の「商品マスタ_全件_*.csv」
+    対象のJANリストがFirestoreのproductsコレクションに存在するか一括照合する
     """
+    token = get_firestore_access_token()
+    if not token:
+        print("Firestoreトークンを取得できなかったため、ローカルフォールバックを試みます")
+        return None
+
+    print(f"\n⚡ Firebase Firestore ({FIREBASE_PROJECT_ID}) と商品マスタ照合を開始...")
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    doc_to_jan = {}
+    for j in set(target_jans):
+        if not j:
+            continue
+        # 14桁ゼロ埋め形式
+        doc_id_14 = j.zfill(14)
+        doc_path = f"projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/products/{doc_id_14}"
+        doc_to_jan[doc_path] = j
+
+    found_jans = set()
+    doc_paths = list(doc_to_jan.keys())
+    chunk_size = 400
+
+    for i in range(0, len(doc_paths), chunk_size):
+        chunk = doc_paths[i:i + chunk_size]
+        url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents:batchGet"
+        payload = {"documents": chunk}
+        try:
+            res = requests.post(url, headers=headers, json=payload, timeout=30)
+            if res.status_code == 200:
+                for item in res.json():
+                    if 'found' in item:
+                        found_name = item['found']['name']
+                        original_jan = doc_to_jan.get(found_name)
+                        if original_jan:
+                            found_jans.add(original_jan)
+            else:
+                print(f"  Firestore batchGet警告: HTTP {res.status_code}")
+        except Exception as e:
+            print(f"  Firestore batchGet例外: {e}")
+
+    print(f"🟢 Firestoreから {len(found_jans)} / {len(doc_to_jan)} 件の登録済み商品を検出しました")
+    return found_jans
+
+def load_master_registered_jans(target_jans=None):
+    """
+    自社商品マスタ登録済みJANコードのセットを取得する
+    優先度: 1. Firebase Firestore (完全自動) -> 2. ローカルCSV/JSONフォールバック
+    """
+    if target_jans:
+        firestore_jans = fetch_firestore_registered_jans(target_jans)
+        if firestore_jans is not None:
+            return firestore_jans
+
     master_jans = set()
 
-    # 1. Google Drive (Gドライブ) またはカレントからの最新CSV探索
+    # 2. ローカルCSVフォールバック
     search_dirs = [
         r'G:\マイドライブ\100sysnet',
         r'G:\マイドライブ\GAS411楽天商品別原価自動入力',
         'data',
         '.'
     ]
-
     latest_csv_path = None
     latest_date_num = 0
 
@@ -517,7 +642,7 @@ def load_master_registered_jans():
                         if date_num > latest_date_num:
                             latest_date_num = date_num
                             latest_csv_path = fpath
-            except Exception as e:
+            except Exception:
                 pass
 
     if latest_csv_path:
@@ -538,43 +663,11 @@ def load_master_registered_jans():
                                     master_jans.add(clean_code)
                                 if len(raw_code) == 14 and raw_code.startswith('0'):
                                     master_jans.add(raw_code[1:])
-            print(f"商品マスタCSVから {len(master_jans)} 件のJANインデックスを取得しました")
+            print(f"商品マスタCSVから {len(master_jans)} 件のJANを取得しました")
             return master_jans
         except Exception as e:
             print(f"CSV読み込みエラー: {e}")
 
-    # 2. JSON ファイルの探索フォールバック
-    candidate_json = [
-        'data/master_jans.json',
-        'data/products_index.json',
-        'scripts/products_index.json'
-    ]
-    for p in candidate_json:
-        if os.path.exists(p):
-            try:
-                with open(p, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    if isinstance(data, list):
-                        for item in data:
-                            if isinstance(item, dict) and 'jan' in item:
-                                j = str(item['jan']).strip()
-                                master_jans.add(j)
-                                master_jans.add(j.lstrip('0'))
-                            elif isinstance(item, str):
-                                j = item.strip()
-                                master_jans.add(j)
-                                master_jans.add(j.lstrip('0'))
-                    elif isinstance(data, dict):
-                        for k in data.keys():
-                            j = str(k).strip()
-                            master_jans.add(j)
-                            master_jans.add(j.lstrip('0'))
-                print(f"JSONインデックスから {len(master_jans)} 件のJANを取得しました: {p}")
-                return master_jans
-            except Exception as e:
-                print(f"JSON読み込みエラー: {e}")
-
-    print("商品マスタファイルは見つかりませんでした（マスタ登録済み判定は未登録として進行）")
     return master_jans
 
 def main():
@@ -615,9 +708,19 @@ def main():
         # Download product images to images/products/{JAN}.jpg
         total_with_images = download_product_images(session, all_products)
 
+        # 商品マスタ登録状況の照合 (Firebase Firestore / CSV)
+        all_catalog_jans = set()
+        for p in all_products:
+            if p.get('jan'):
+                all_catalog_jans.add(p['jan'])
+            if p.get('prevJan'):
+                all_catalog_jans.add(p['prevJan'])
+        
+        registered_master_jans = load_master_registered_jans(all_catalog_jans)
+
         # 商品マスタ登録フラグの付与
         for p in all_products:
-            p['isMasterRegistered'] = (p.get('jan') in master_registered_jans) or (p.get('prevJan') in master_registered_jans)
+            p['isMasterRegistered'] = (p.get('jan') in registered_master_jans) or (p.get('prevJan') in registered_master_jans)
 
         # Sort products: Genre -> Maker -> Date -> Category
         all_products.sort(key=lambda x: (

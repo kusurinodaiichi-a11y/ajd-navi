@@ -170,12 +170,44 @@ function getMakerSortKey(makerName) {
 }
 
 /**
+ * フォルダの検証用デバッグ関数
+ */
+function debugInspectFolders() {
+  const ids = [
+    { id: '1_5WyhwQjQ0l-XWmqK9nnMLSU0MwOT60a', label: '100sysnet指定ID' },
+    { id: '1y1UR2QdDoEnAKAGw1FDg8XdvJJq1vE6o', label: '前回指定ID' }
+  ];
+
+  ids.forEach(item => {
+    console.log(`\n========================================`);
+    console.log(`【チェック】${item.label}: ${item.id}`);
+    try {
+      const folder = DriveApp.getFolderById(item.id);
+      console.log(`フォルダ名: ${folder.getName()}`);
+      
+      const files = folder.getFiles();
+      let count = 0;
+      const fileNames = [];
+      while (files.hasNext() && count < 20) {
+        const f = files.next();
+        fileNames.push(`${f.getName()} (更新: ${f.getLastUpdated()})`);
+        count++;
+      }
+      console.log(`ファイル一覧 (先頭${count}件):\n` + fileNames.join('\n'));
+    } catch (e) {
+      console.error(`フォルダ取得エラー: ${e.message}`);
+    }
+  });
+}
+
+/**
  * スプレッドシートを開いたときにカスタムメニューを追加
  */
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('AJDナビ連携')
     .addItem('商品データ取得・更新を実行', 'fetchAjdProductData')
+    .addItem('【デバッグ】商品マスタフォルダ確認', 'debugInspectFolders')
     .addToUi();
 }
 

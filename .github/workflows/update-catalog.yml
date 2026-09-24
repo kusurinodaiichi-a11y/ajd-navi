@@ -32,6 +32,9 @@ jobs:
           AJD_LOGIN_ID: ${{ secrets.AJD_LOGIN_ID }}
           AJD_LOGIN_PASS: ${{ secrets.AJD_LOGIN_PASS }}
           CATALOG_ENCRYPT_KEY: ${{ secrets.CATALOG_ENCRYPT_KEY || '7812' }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID || 'drug-search-app-73c9c' }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
         run: |
           python scripts/build_catalog.py
 
