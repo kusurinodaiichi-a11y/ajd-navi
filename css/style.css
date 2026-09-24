@@ -76,6 +76,42 @@ body {
   gap: 14px;
 }
 
+.header-column-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.header-column-control label {
+  font-size: 12px;
+  font-weight: bold;
+  color: #ffffff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.select-columns {
+  background: #ffffff;
+  color: #1b5e20;
+  border: none;
+  font-weight: bold;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.select-columns:hover, .select-columns:focus {
+  background: #ffeb3b;
+  color: #1b5e20;
+}
+
 .timestamp {
   font-size: 12px;
   color: #c8e6c9;
@@ -433,10 +469,152 @@ body {
 /* ==========================================================================
    画像カタログ（カード一覧）グリッド
    ========================================================================== */
+.main-content.wide-layout {
+  max-width: 98%;
+  transition: max-width 0.2s ease;
+}
+
 .catalog-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
   gap: 16px;
+  transition: gap 0.2s ease;
+}
+
+/* 列数強制指定クラス */
+.catalog-grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.catalog-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.catalog-grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.catalog-grid.cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.catalog-grid.cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.catalog-grid.cols-7 { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.catalog-grid.cols-8 { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+
+/* 4〜5列（コンパクトモード） */
+.catalog-grid.cols-4,
+.catalog-grid.cols-5 {
+  gap: 10px;
+}
+.catalog-grid.cols-4 .card-body,
+.catalog-grid.cols-5 .card-body {
+  grid-template-columns: 120px 1fr;
+  min-height: 165px;
+  gap: 6px;
+  padding: 5px;
+}
+.catalog-grid.cols-4 .card-image-box,
+.catalog-grid.cols-5 .card-image-box {
+  min-height: 120px;
+}
+.catalog-grid.cols-4 .spec-table th,
+.catalog-grid.cols-4 .spec-table td,
+.catalog-grid.cols-5 .spec-table th,
+.catalog-grid.cols-5 .spec-table td {
+  padding: 2px 4px;
+  font-size: 10.5px;
+}
+.catalog-grid.cols-4 .card-features,
+.catalog-grid.cols-5 .card-features {
+  font-size: 10px;
+  padding: 4px 6px;
+  max-height: 45px;
+}
+
+/* 6〜8列（超高密度一覧モード） */
+.catalog-grid.cols-6,
+.catalog-grid.cols-7,
+.catalog-grid.cols-8 {
+  gap: 8px;
+}
+.catalog-grid.cols-6 .product-card,
+.catalog-grid.cols-7 .product-card,
+.catalog-grid.cols-8 .product-card {
+  font-size: 11px;
+}
+.catalog-grid.cols-6 .card-top-header,
+.catalog-grid.cols-7 .card-top-header,
+.catalog-grid.cols-8 .card-top-header {
+  min-height: 24px;
+  font-size: 11px;
+}
+.catalog-grid.cols-6 .card-type,
+.catalog-grid.cols-7 .card-type,
+.catalog-grid.cols-8 .card-type {
+  font-size: 9px;
+  padding: 1px 4px;
+}
+.catalog-grid.cols-6 .badge-master,
+.catalog-grid.cols-7 .badge-master,
+.catalog-grid.cols-8 .badge-master {
+  font-size: 9px;
+  padding: 1px 4px;
+}
+.catalog-grid.cols-6 .card-title-bar,
+.catalog-grid.cols-7 .card-title-bar,
+.catalog-grid.cols-8 .card-title-bar {
+  font-size: 11px;
+  padding: 4px 6px;
+  min-height: 32px;
+}
+.catalog-grid.cols-6 .card-info-row,
+.catalog-grid.cols-7 .card-info-row,
+.catalog-grid.cols-8 .card-info-row {
+  font-size: 9.5px;
+  grid-template-columns: 1fr 60px 75px;
+}
+.catalog-grid.cols-6 .card-body,
+.catalog-grid.cols-7 .card-body,
+.catalog-grid.cols-8 .card-body {
+  display: flex;
+  flex-direction: column;
+  min-height: auto;
+  padding: 5px;
+  gap: 4px;
+}
+.catalog-grid.cols-6 .card-image-box,
+.catalog-grid.cols-7 .card-image-box,
+.catalog-grid.cols-8 .card-image-box {
+  height: 110px;
+  min-height: 110px;
+}
+.catalog-grid.cols-6 .card-img,
+.catalog-grid.cols-7 .card-img,
+.catalog-grid.cols-8 .card-img {
+  max-height: 105px;
+}
+.catalog-grid.cols-6 .spec-table,
+.catalog-grid.cols-7 .spec-table,
+.catalog-grid.cols-8 .spec-table {
+  font-size: 9px;
+}
+.catalog-grid.cols-6 .spec-table th,
+.catalog-grid.cols-6 .spec-table td,
+.catalog-grid.cols-7 .spec-table th,
+.catalog-grid.cols-7 .spec-table td,
+.catalog-grid.cols-8 .spec-table th,
+.catalog-grid.cols-8 .spec-table td {
+  padding: 2px 3px;
+}
+.catalog-grid.cols-6 .jan-number,
+.catalog-grid.cols-7 .jan-number,
+.catalog-grid.cols-8 .jan-number {
+  font-size: 10px;
+}
+.catalog-grid.cols-6 .card-features,
+.catalog-grid.cols-7 .card-features,
+.catalog-grid.cols-8 .card-features {
+  display: none; /* 超多列時は特徴文を省いて視認性を向上 */
+}
+
+/* スマホ等画面幅が狭い場合のセーフティガード */
+@media (max-width: 768px) {
+  .catalog-grid.cols-4,
+  .catalog-grid.cols-5,
+  .catalog-grid.cols-6,
+  .catalog-grid.cols-7,
+  .catalog-grid.cols-8 {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)) !important;
+  }
 }
 
 .genre-divider {

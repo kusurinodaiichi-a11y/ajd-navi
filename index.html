@@ -6,7 +6,7 @@
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex, nofollow, noarchive">
   <title>AJD Navi 新商品・リニューアル品 カタログ</title>
-  <link rel="stylesheet" href="css/style.css?v=20260923_4">
+  <link rel="stylesheet" href="css/style.css?v=20260924_1">
   <!-- JsBarcode for rendering real barcodes -->
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <!-- CryptoJS for AES Decryption -->
@@ -22,6 +22,19 @@
         <span id="period-badge" class="period-badge">対象期間: 2026/07 〜 2026/12</span>
       </div>
       <div class="header-info">
+        <div class="header-column-control">
+          <label for="column-select">🔲 列数:</label>
+          <select id="column-select" class="select-columns" title="カタログの表示列数を切り替えます">
+            <option value="auto" selected>自動</option>
+            <option value="2">2列</option>
+            <option value="3">3列</option>
+            <option value="4">4列</option>
+            <option value="5">5列</option>
+            <option value="6">6列</option>
+            <option value="7">7列</option>
+            <option value="8">8列</option>
+          </select>
+        </div>
         <span id="update-timestamp" class="timestamp">最終更新: 取得中...</span>
         <button id="btn-lock" class="btn btn-lock" title="認証を解除してロックする">🔒 ログアウト</button>
       </div>
@@ -165,8 +178,8 @@
   </div>
 
   <!-- 期間マニフェスト読み込み -->
-  <script src="data/periods.js?v=20260923_4"></script>
+  <script src="data/periods.js?v=20260924_1"></script>
   <!-- アプリケーションスクリプト -->
-  <script src="js/app.js?v=20260923_4"></script>
+  <script src="js/app.js?v=20260924_1"></script>
 </body>
 </html>

@@ -38,6 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const monthFilter = document.getElementById('month-filter');
   const typeFilter = document.getElementById('type-filter');
   const masterFilter = document.getElementById('master-filter');
+  const columnSelect = document.getElementById('column-select');
+  const mainContent = document.querySelector('.main-content');
   const noResults = document.getElementById('no-results');
   const btnBackToTop = document.getElementById('btn-back-to-top');
   const btnLock = document.getElementById('btn-lock');
@@ -489,6 +491,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (monthFilter) monthFilter.addEventListener('change', applyFilters);
     typeFilter.addEventListener('change', applyFilters);
     if (masterFilter) masterFilter.addEventListener('change', applyFilters);
+
+    // 列数切り替え (2〜8列)
+    if (columnSelect) {
+      columnSelect.value = 'auto';
+      columnSelect.addEventListener('change', () => {
+        const val = columnSelect.value;
+        for (let i = 2; i <= 8; i++) {
+          catalogContainer.classList.remove(`cols-${i}`);
+        }
+        if (val !== 'auto') {
+          catalogContainer.classList.add(`cols-${val}`);
+          if (mainContent && parseInt(val, 10) >= 4) {
+            mainContent.classList.add('wide-layout');
+          } else if (mainContent) {
+            mainContent.classList.remove('wide-layout');
+          }
+        } else {
+          if (mainContent) mainContent.classList.remove('wide-layout');
+        }
+      });
+    }
 
     function switchView(viewName) {
       tabBtns.forEach(btn => {
